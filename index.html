@@ -1254,7 +1254,6 @@ function goMaker(){
   document.getElementById('mk-quiz-pw').value='';
   document.getElementById('mk-pw-row').classList.add('hidden');
   document.getElementById('mk-private').addEventListener('change',function(){document.getElementById('mk-pw-row').classList.toggle('hidden',!this.checked);},{once:false});
-  if(!isAdmin&&getWeekCount()>=3)document.getElementById('mk-week-limit').classList.remove('hidden');
   else document.getElementById('mk-week-limit').classList.add('hidden');
   renderMkList();renderCatPick();
   const ht2=document.getElementById('mk-hero-ttl');if(ht2)ht2.textContent='✏️ 퀴즈 만들기';
@@ -1298,7 +1297,6 @@ async function publishQuiz(){
   }
   await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:existingData.plays,scores:existingData.scores,created_at:existingData.created_at,is_private:isPrivate,is_adult:isAdult,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw});
   }catch(e){toast('업로드 실패: '+e.message);return;}
-  if(!isAdmin)incWeekCount();
   toast(quizId_override?'✅ 퀴즈가 수정됐어요!':'🎉 퀴즈가 등록됐어요!');
   if(quizId_override){const eid=quizId_override;quizId_override=null;setTimeout(()=>openDetail(eid),800);}else{setTimeout(goHome,800);}
 }
