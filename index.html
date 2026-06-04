@@ -349,22 +349,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
         <button class="btn btn-acc btn-full btn-lg" onclick="startPlay()">▶ 퀴즈 시작하기</button>
       </div>
     </div>
-    <div id="det-owner-btns" style="display:none;margin-top:12px">
-      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;letter-spacing:.04em">✏️ 내 퀴즈 관리</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-          <button class="btn btn-sm" onclick="scrollToComments()">💬 댓글 보기</button>
-          <button class="btn btn-sm" onclick="openEditTitle()">제목 수정</button>
-          <button class="btn btn-sm" onclick="openEditDesc()">설명 수정</button>
-          <button class="btn btn-sm" onclick="openEditThumb()">썸네일 변경</button>
-          <button class="btn btn-sm" onclick="openEditCategory()">카테고리</button>
-          <button class="btn btn-sm" onclick="openEditPw()">비밀번호 설정</button>
-          <button class="btn btn-sm" onclick="editQuizPrivacy()">🔒 공개/비공개</button>
-        </div>
-        <button class="btn btn-full btn-sm" style="margin-top:6px" onclick="openEditQuestions()">📝 문제 수정</button>
-        <button class="btn btn-red btn-full btn-sm" style="margin-top:6px" onclick="ownerDeleteQuiz()">🗑 퀴즈 삭제</button>
-      </div>
-    </div>
+
     <div id="det-admin-btns" style="display:none;margin-top:8px">
       <button class="btn btn-sm btn-full" style="margin-bottom:6px" onclick="adminViewComments()">💬 댓글 전체 보기</button>
       <button class="btn btn-red btn-full btn-sm" onclick="adminDeleteQuiz()">🗑 삭제 (관리자)</button>
@@ -764,7 +749,7 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function fmtSec(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
 function setPageMeta(title,path){document.title=title?title+' - QuizBox':'QuizBox';try{history.pushState(null,'',path||'/');}catch(e){}}
 function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();setPageMeta('설정','/settings');}
-async function goHome(){stopAudio();clearTimer();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
+async function goHome(){stopAudio();clearTimer();killVideoIframe();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
 window.addEventListener('popstate',()=>{const p=location.pathname;if(p==='/settings')goSettings();else goHome();});
 
 function rowToQuiz(row){return{id:row.id,title:row.title,desc:row.description,category:row.category,thumb:row.thumb,thumbEmoji:row.thumb_emoji,questions:row.questions||[],plays:row.plays||0,scores:row.scores||[],isPrivate:row.is_private,isAdult:row.is_adult,createdAt:row.created_at,ownerId:row.owner_id,ownerNickname:row.owner_nickname,quizPassword:row.quiz_password};}
@@ -843,14 +828,13 @@ function loadDetail(quiz,isMine){
   // reset time limit
   selTimeLimit=0;
   document.querySelectorAll('#time-btns .cnt-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
-  const ownerBtns=document.getElementById('det-owner-btns');
-  ownerBtns.style.display=isMine?'block':'none';
+
   document.getElementById('det-admin-btns').style.display=isAdmin?'block':'none';
   showScreen('detail');
 }
 function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 function selTime(btn,t){selTimeLimit=t;document.querySelectorAll('#time-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
-function goDetail(){clearST();stopAudio();clearTimer();showScreen('detail');setPageMeta('','');}
+function goDetail(){clearST();stopAudio();clearTimer();killVideoIframe();showScreen('detail');setPageMeta('','');}
 
 // ═ EDIT QUIZ FUNCTIONS ═
 function openEditModal(title,bodyHtml,onOk){
