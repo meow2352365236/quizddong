@@ -960,17 +960,20 @@ function startAudioQ(q){
   const f=document.getElementById('yt-audio-frame');
   f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1&enablejsapi=1`;
   audioPlaying=true;audioStart=Date.now();audioDur=e&&e>s?e-s:null;
-  // set volume via iframe postMessage (YT API)
-  setTimeout(()=>{
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]}),'*');}catch(e){}
-  },1500);
+  // set volume via iframe postMessage - try multiple times as YT takes time to init
+  function applyAudVol(){
+    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]}),'*');}catch(e_){}
+  }
+  [300,800,1500,2500].forEach(t=>setTimeout(applyAudVol,t));
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
   if(audioDur){audioTimer=setTimeout(()=>{stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width='100%';},audioDur*1000);}
   audioTick=setInterval(()=>{
     const el=(Date.now()-audioStart)/1000;
-    if(audioDur){const pct=Math.min(100,el/audioDur*100);const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width=pct+'%';}
+    const f2=document.getElementById('ap-bar-fill');
+    if(audioDur){if(f2)f2.style.width=Math.min(100,el/audioDur*100)+'%';}
+    else{if(f2)f2.style.width='0%';}
     const c=document.getElementById('ap-cur');if(c)c.textContent=fmtSec(Math.round(el));
-  },500);
+  },300);
 }
 function updateAudBadge(q){const max=q?q.maxPlays||0:0;const b=document.getElementById('ap-badge');if(!b)return;if(max===0){b.textContent='';return;}const left=Math.max(0,max-audPlayCount);b.textContent=left>0?`재생 ${left}회 남음`:'소진';b.style.color=left===0?'var(--red)':'var(--text3)';const btn=document.getElementById('ap-play-btn');if(btn)btn.disabled=left===0;}
 function toggleAudio(q){if(audioPlaying){stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';}else{startAudioQ(q);}}
@@ -1040,14 +1043,16 @@ function renderPQ(){
     media=`<div class="yt-wrap" id="yt-vid-wrap-${pIdx}"><div class="yt-ratio"><iframe id="${vidId}" src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0&enablejsapi=1" allowfullscreen allow="autoplay;encrypted-media"></iframe><div class="yt-shield"></div></div><div class="yt-ctrl-bar"><button class="yt-pp-btn" id="yt-pp-${pIdx}" onclick="toggleVidPlay(${pIdx})">⏸</button><div class="yt-vol-row"><span style="font-size:14px">🔊</span><input type="range" min="0" max="100" step="5" value="80" style="flex:1;accent-color:var(--accent)" oninput="setVidVol(${pIdx},this.value)"></div></div></div>`;
   } else {
     // audio — hidden YT iframe
-    const dur=(q.endSec&&q.startSec)?q.endSec-q.startSec:null;
+    const audS=q.startSec||0,audE=q.endSec||null;
+    const dur=audE&&audE>audS?audE-audS:null;
+    const rangeLabel=audE?fmtSec(audS)+' ~ '+fmtSec(audE):(audS>0?fmtSec(audS)+' ~':'');
     media=`<div class="audio-player">
       <div class="ap-top">
         <div class="ap-icon">🎵</div>
-        <div class="ap-info"><div class="ap-label">소리를 듣고 답을 입력하세요</div><div class="ap-title">${dur?fmtSec(dur)+' 구간':''}</div></div>
+        <div class="ap-info"><div class="ap-label">소리를 듣고 답을 입력하세요</div><div class="ap-title">${rangeLabel||''}</div></div>
         <button class="ap-btn" id="ap-play-btn" onclick="toggleAudio(pQ[pIdx])">▶</button>
       </div>
-      <div class="ap-progress"><div class="ap-bar-bg"><div class="ap-bar-fill" id="ap-bar-fill"></div></div><div class="ap-time"><span id="ap-cur">0:00</span><span>${dur?fmtSec(dur):''}</span></div></div>
+      <div class="ap-progress"><div class="ap-bar-bg"><div class="ap-bar-fill" id="ap-bar-fill"></div></div><div class="ap-time"><span id="ap-cur">0:00</span><span id="ap-total">${dur?fmtSec(dur):''}</span></div></div>
       <div class="ap-vol-row">
         <span class="ap-vol-icon" id="ap-vol-icon">🔊</span>
         <input class="ap-vol-slider" type="range" id="ap-vol" min="0" max="1" step="0.05" value="${audVol}" oninput="setAudVol(this.value)">
@@ -1325,13 +1330,13 @@ function openEditQ(i){
     else{const ip=document.getElementById('qimg-prev');if(ip){ip.style.display='none';ip.src='';}document.getElementById('qimg-ui').textContent='🖼️';document.getElementById('qimg-ut').textContent='클릭하거나 드래그';}
     document.getElementById('qimg-f').value='';
   }else if(qType==='audio'){
-    const au=document.getElementById('q-yt-aud');if(au)au.value=q.ytId||'';
+    const au=document.getElementById('q-yt-aud');if(au)au.value=q.ytId?'https://youtu.be/'+q.ytId:'';
     const as_=document.getElementById('q-st-aud');if(as_)as_.value=q.startSec||'';
     const ae=document.getElementById('q-en-aud');if(ae)ae.value=q.endSec||'';
     const am=document.getElementById('q-aud-maxplays');if(am)am.value=q.maxPlays||0;
     if(q.ytId){const w=document.getElementById('q-ytprev-aud');const f=document.getElementById('q-ytif-aud');if(w&&f){w.style.display='block';f.src='https://www.youtube.com/embed/'+q.ytId+'?rel=0&modestbranding=1&enablejsapi=1';}}
   }else if(qType==='video'){
-    const vu=document.getElementById('q-yt-vid');if(vu)vu.value=q.ytId||'';
+    const vu=document.getElementById('q-yt-vid');if(vu)vu.value=q.ytId?'https://youtu.be/'+q.ytId:'';
     const vs=document.getElementById('q-st-vid');if(vs)vs.value=q.startSec||'';
     const ve=document.getElementById('q-en-vid');if(ve)ve.value=q.endSec||'';
     const vm=document.getElementById('q-vid-maxplays');if(vm)vm.value=q.maxPlays||0;
@@ -1344,7 +1349,10 @@ function openEditQ(i){
 function openAddQ(){editQIdx=-1;
   if(mkQs.length>=30){toast('문제는 최대 30개까지 추가할 수 있어요');return;}
   qType='image';qImgData=null;modalAnswers=[];
-  ['q-q','q-yt-aud','q-st-aud','q-en-aud','q-yt-vid','q-st-vid','q-en-vid','q-ans-inp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const prevQ=document.getElementById('q-q')?document.getElementById('q-q').value:'';
+  ['q-yt-aud','q-st-aud','q-en-aud','q-yt-vid','q-st-vid','q-en-vid','q-ans-inp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  // keep previous question title for convenience
+  const qEl=document.getElementById('q-q');if(qEl)qEl.value=prevQ;
   document.getElementById('q-timelimit') && (document.getElementById('q-timelimit').value='0');
   renderAnswerChips();
   const ip=document.getElementById('qimg-prev');if(ip){ip.style.display='none';ip.src='';}
