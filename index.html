@@ -121,7 +121,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 /* padding-top 계산: 원래 56.25% + 상하 잘라낼 비율 보정 */
 /* 상단 52px + 하단 42px = 94px 잘라냄, iframe을 위로 올리고 크게 키움 */
 .yt-wrap .yt-ratio{position:relative;padding-top:calc(56.25% - 72px);overflow:hidden}
-.yt-wrap iframe{position:absolute;top:-68px;left:-2px;width:calc(100% + 4px);height:calc(100% + 144px);border:none;pointer-events:none}.yt-wrap .yt-shield{position:absolute;inset:0;z-index:2}
+.yt-wrap iframe{position:absolute;top:-68px;left:-2px;width:calc(100% + 4px);height:calc(100% + 144px);border:none;pointer-events:none}.yt-wrap .yt-shield{position:absolute;inset:0;z-index:2;pointer-events:none;background:transparent}
 
 /* audio player */
 .audio-player{margin-bottom:22px;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rl);padding:20px}
@@ -903,7 +903,7 @@ async function openEditQuestions(){
   if(!rows||!rows.length){toast('로드 실패');return;}
   const quiz=rowToQuiz(rows[0]);
   quizId_override=quiz.id;quizId=quiz.id;mkQs=[...(quiz.questions||[])];mkCat=quiz.category||'기타';
-  document.getElementById('mk-title').value=quiz.title||'';
+  document.getElementById('mk-ttl').value=quiz.title||'';
   document.getElementById('mk-desc').value=quiz.desc||'';
   document.getElementById('mk-private').checked=!!quiz.isPrivate;
   document.getElementById('mk-quiz-pw').value=quiz.quizPassword||'';
@@ -936,6 +936,10 @@ function stopAudio(){
   // reset iframe src to stop YT playback
   const f=document.getElementById('yt-audio-frame');if(f)f.src='about:blank';
   audioPlaying=false;
+}
+function killVideoIframe(){
+  const wrap=document.getElementById('play-media-wrap');
+  if(wrap){wrap.querySelectorAll('iframe').forEach(f=>{try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'stopVideo',args:''}),'*');}catch(e){}f.src='about:blank';});}
 }
 function startAudioQ(q){
   stopAudio();
@@ -1166,6 +1170,29 @@ async function deleteReply(qid,cidx,ridx){if(!isAdmin)return;const cl=await getC
 function launchConfetti(rate){const canvas=document.getElementById('confetti-canvas');canvas.style.display='block';canvas.width=window.innerWidth;canvas.height=window.innerHeight;const ctx=canvas.getContext('2d');const count=rate>=80?180:rate>=50?100:50;const colors=['#6d4fc2','#f472b6','#fbbf24','#34d399','#60a5fa','#f87171','#a78bfa'];const pieces=Array.from({length:count},()=>({x:Math.random()*canvas.width,y:Math.random()*-canvas.height,r:Math.random()*6+3,color:colors[Math.floor(Math.random()*colors.length)],vx:(Math.random()-.5)*4,vy:Math.random()*4+2,rot:Math.random()*360,vrot:(Math.random()-.5)*8,shape:Math.random()<.5?'rect':'circle',w:Math.random()*10+4,h:Math.random()*6+3,alpha:1}));let frame=0;function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);let alive=false;for(const p of pieces){p.x+=p.vx;p.y+=p.vy;p.rot+=p.vrot;p.vy+=.06;if(frame>80)p.alpha=Math.max(0,p.alpha-.012);if(p.alpha>0&&p.y<canvas.height+20)alive=true;ctx.save();ctx.globalAlpha=p.alpha;ctx.fillStyle=p.color;ctx.translate(p.x,p.y);ctx.rotate(p.rot*Math.PI/180);if(p.shape==='rect')ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);else{ctx.beginPath();ctx.arc(0,0,p.r,0,Math.PI*2);ctx.fill();}ctx.restore();}frame++;if(alive)requestAnimationFrame(draw);else{ctx.clearRect(0,0,canvas.width,canvas.height);canvas.style.display='none';}}draw();}
 
 // ═══ MY QUIZZES ═══
+async function startEditQuiz(id){
+  const rows=await sbSelect('quizzes','select=*&id=eq.'+id).catch(()=>[]);
+  if(!rows||!rows.length){toast('로드 실패');return;}
+  const quiz=rowToQuiz(rows[0]);
+  quizId_override=quiz.id;
+  mkQs=[...(quiz.questions||[])];
+  mkCat=quiz.category||'기타';
+  mkThumb=quiz.thumb||null;
+  stopAudio();clearTimer();killVideoIframe();
+  // populate maker fields
+  document.getElementById('mk-ttl').value=quiz.title||'';
+  document.getElementById('mk-desc').value=quiz.desc||'';
+  document.getElementById('mk-private').checked=!!quiz.isPrivate;
+  document.getElementById('mk-quiz-pw').value=quiz.quizPassword||'';
+  if(quiz.isPrivate)document.getElementById('mk-pw-row').classList.remove('hidden');
+  else document.getElementById('mk-pw-row').classList.add('hidden');
+  if(quiz.thumb){const p=document.getElementById('thumb-prev');if(p){p.src=quiz.thumb;p.style.display='block';}document.getElementById('thumb-ut').textContent='✅ 현재 썸네일';}
+  renderMkList();renderCatPick();
+  const ht=document.getElementById('mk-hero-ttl');if(ht)ht.textContent='✏️ 퀴즈 수정';
+  const pb=document.getElementById('mk-pub-btn');if(pb)pb.textContent='💾 수정 완료';
+  showScreen('maker');
+  toast('내용을 수정한 후 저장하세요');
+}
 async function goMyQuiz(){
   if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
   stopAudio();clearTimer();killVideoIframe();showScreen('myquiz');
@@ -1175,7 +1202,7 @@ async function goMyQuiz(){
   list.innerHTML=rows.map(r=>{
     const q=rowToQuiz(r);
     const thumb=q.thumb?`<img class="myq-thumb" src="${q.thumb}" alt="">`:`<div class="myq-thumb">${q.thumbEmoji||'🎯'}</div>`;
-    return `<div class="myq-item">${thumb}<div class="myq-body"><div class="myq-ttl">${esc(q.title)}${q.isPrivate?' 🔒':''}</div><div class="myq-meta">${(q.questions||[]).length}문제 · ▶ ${q.plays||0}회 · ${q.category}</div></div><div class="myq-actions"><button class="btn btn-sm" onclick="openDetail('${q.id}')">보기</button><button class="btn btn-sm" onclick="togglePrivacyDirect('${q.id}',${q.isPrivate})">${q.isPrivate?'공개':'비공개'}</button><button class="btn btn-sm btn-red" onclick="deleteMyQuiz('${q.id}')">삭제</button></div></div>`;
+    return `<div class="myq-item">${thumb}<div class="myq-body"><div class="myq-ttl">${esc(q.title)}${q.isPrivate?' 🔒':''}</div><div class="myq-meta">${(q.questions||[]).length}문제 · ▶ ${q.plays||0}회 · ${q.category}</div></div><div class="myq-actions"><button class="btn btn-sm" onclick="startEditQuiz('${q.id}')">✏️ 수정</button><button class="btn btn-sm" onclick="openDetail('${q.id}')">보기</button><button class="btn btn-sm" onclick="togglePrivacyDirect('${q.id}',${q.isPrivate})">${q.isPrivate?'공개':'비공개'}</button><button class="btn btn-sm btn-red" onclick="deleteMyQuiz('${q.id}')">삭제</button></div></div>`;
   }).join('');
 }
 async function togglePrivacyDirect(id,cur){await sbUpdate('quizzes',`id=eq.${id}`,{is_private:!cur});toast(!cur?'🔒 비공개로 전환됐어요':'🔓 공개로 전환됐어요');goMyQuiz();}
