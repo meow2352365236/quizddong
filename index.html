@@ -551,7 +551,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     <div class="fl">
       <label>정답 * <span style="font-weight:400;font-size:10px;color:var(--text3)">(Enter로 추가, 복수 가능)</span></label>
       <div class="ans-chips" id="q-ans-chips"></div>
-      <input type="text" id="q-ans-inp" placeholder="정답 입력 후 Enter 또는 쉼표">
+      <input type="text" id="q-ans-inp" placeholder="정답 입력 후 Enter">
       <div class="hint">여러 정답 추가 시 그 중 하나만 맞아도 정답</div>
     </div>
     <div style="display:flex;gap:8px;margin-top:6px">
@@ -1077,7 +1077,13 @@ function renderPQ(){
       <button class="btn btn-acc btn-full" id="nbtn" style="display:none;margin-top:4px" onclick="nextP()">${pIdx+1<total?'다음 문제 →':'결과 보기 →'}</button>
     </div>`;
   const inp=document.getElementById('ainp');
-  inp.addEventListener('keydown',e=>{if(e.key==='Enter')subAns();});
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){subAns();return;}
+    if(e.key===' '&&!e.target.value&&pQ[pIdx]&&pQ[pIdx].type==='audio'){
+      e.preventDefault();
+      toggleAudio(pQ[pIdx]);
+    }
+  });
   inp.focus();
   if(tl>0)startTimer(tl);
 }
@@ -1384,7 +1390,7 @@ function openEditQ(i){
   }
   renderAnswerChips();
   document.getElementById('modal-q').classList.remove('hidden');
-  document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'||e.key===','){e.preventDefault();addAnsChip(this.value);}};
+  document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();addAnsChip(this.value);}};
 }
 function openAddQ(){editQIdx=-1;
   if(mkQs.length>=500){toast('문제는 최대 500개까지 추가할 수 있어요');return;}
@@ -1405,7 +1411,7 @@ function openAddQ(){editQIdx=-1;
   document.getElementById('qf-aud').classList.add('hidden');
   document.getElementById('qf-vid').classList.add('hidden');
   document.getElementById('modal-q').classList.remove('hidden');
-  document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'||e.key===','){e.preventDefault();addAnsChip(this.value);}};
+  document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();addAnsChip(this.value);}};
 }
 function closeModal(){document.getElementById('modal-q').classList.add('hidden');}
 function pickType(el){qType=el.dataset.t;document.querySelectorAll('.tc').forEach(c=>c.classList.remove('on'));el.classList.add('on');document.getElementById('qf-img').classList.toggle('hidden',qType!=='image');document.getElementById('qf-aud').classList.toggle('hidden',qType!=='audio');document.getElementById('qf-vid').classList.toggle('hidden',qType!=='video');}
