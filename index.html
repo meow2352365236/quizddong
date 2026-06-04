@@ -994,7 +994,7 @@ function toggleAudMute(){
 function updateAudVolIcon(){const i=document.getElementById('ap-vol-icon');if(!i)return;i.textContent=audVol===0?'🔇':audVol<0.4?'🔉':'🔊';}
 
 // ═══ VIDEO ═══
-let vidVolume=0.8,vidPlayCount=0;
+let vidVolume=0.8,vidPlayCount=0,vidVolPct=80;
 function getVidFrame(idx){return document.getElementById('vid-iframe-'+idx);}
 function postVidMsg(idx,func,args){const f=getVidFrame(idx);if(!f)return;try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:func,args:args||''}),'*');}catch(e){}}
 let vidPaused={};
@@ -1003,7 +1003,7 @@ function toggleVidPlay(idx){
   if(vidPaused[idx]){postVidMsg(idx,'playVideo');vidPaused[idx]=false;if(btn)btn.textContent='⏸';}
   else{postVidMsg(idx,'pauseVideo');vidPaused[idx]=true;if(btn)btn.textContent='▶';}
 }
-function setVidVol(idx,val){postVidMsg(idx,'setVolume',[parseInt(val)]);}
+function setVidVol(idx,val){vidVolPct=parseInt(val);postVidMsg(idx,'setVolume',[vidVolPct]);}
 function setVidVol_old(v){vidVolume=parseFloat(v);const vid=document.getElementById('pvid');if(vid)vid.volume=vidVolume;updateVolIcon();}
 function toggleMute(){const vid=document.getElementById('pvid');if(!vid)return;vid.muted=!vid.muted;updateVolIcon();}
 function updateVolIcon(){const vid=document.getElementById('pvid'),icon=document.getElementById('vid-vol-icon');if(!icon)return;icon.textContent=(!vid||vid.muted||vidVolume===0)?'🔇':vidVolume<0.4?'🔉':'🔊';}
@@ -1017,7 +1017,7 @@ function startTimer(sec){clearTimer();let left=sec;const fill=document.getElemen
 function autoSubmit(){const inp=document.getElementById('ainp');if(!inp||pDone)return;inp.value='(시간 초과)';subAns();}
 
 // ═══ PLAY ═══
-let pQ=[],pIdx=0,pScore=0,pStart=0,pDone=false,stopT=[];
+let pQ=[],pIdx=0,pScore=0,pStart=0,pDone=false,stopT=[],pResults=[];
 function clearST(){stopT.forEach(clearTimeout);stopT=[];}
 
 async function startPlay(){
@@ -1025,7 +1025,7 @@ async function startPlay(){
   try{await sbUpdate('quizzes',`id=eq.${curQid}`,{plays:(quiz.plays||0)+1});}catch(e){}
   pQ=[...quiz.questions].sort(()=>Math.random()-.5).slice(0,selQCount||quiz.questions.length);
   clearST();stopAudio();clearTimer();
-  pIdx=0;pScore=0;pStart=Date.now();pDone=false;showScreen('play');renderPQ();
+  pIdx=0;pScore=0;pStart=Date.now();pDone=false;pResults=[];showScreen('play');renderPQ();
 }
 
 function renderPQ(){
@@ -1040,7 +1040,7 @@ function renderPQ(){
     const s=q.startSec||0,e=q.endSec;
     const end=e?`&end=${e}`:'';
     const vidId="vid-iframe-"+pIdx;
-    media=`<div class="yt-wrap" id="yt-vid-wrap-${pIdx}"><div class="yt-ratio"><iframe id="${vidId}" src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0&enablejsapi=1" allowfullscreen allow="autoplay;encrypted-media"></iframe><div class="yt-shield"></div></div><div class="yt-ctrl-bar"><button class="yt-pp-btn" id="yt-pp-${pIdx}" onclick="toggleVidPlay(${pIdx})">⏸</button><div class="yt-vol-row"><span style="font-size:14px">🔊</span><input type="range" min="0" max="100" step="5" value="80" style="flex:1;accent-color:var(--accent)" oninput="setVidVol(${pIdx},this.value)"></div></div></div>`;
+    media=`<div class="yt-wrap" id="yt-vid-wrap-${pIdx}"><div class="yt-ratio"><iframe id="${vidId}" src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0&enablejsapi=1" allowfullscreen allow="autoplay;encrypted-media" onload="[300,800,1500].forEach(t=>setTimeout(()=>postVidMsg(${pIdx},'setVolume',[vidVolPct]),t))"></iframe><div class="yt-shield"></div></div><div class="yt-ctrl-bar"><button class="yt-pp-btn" id="yt-pp-${pIdx}" onclick="toggleVidPlay(${pIdx})">⏸</button><div class="yt-vol-row"><span style="font-size:14px">🔊</span><input type="range" min="0" max="100" step="5" value="${vidVolPct}" style="flex:1;accent-color:var(--accent)" oninput="setVidVol(${pIdx},this.value)"></div></div></div>`;
   } else {
     // audio — hidden YT iframe
     const audS=q.startSec||0,audE=q.endSec||null;
@@ -1089,6 +1089,7 @@ function subAns(){
   const accepted=parseAnswers(q.answer);
   const ok=accepted.includes(norm(val));
   if(ok)pScore++;
+  pResults.push({q,val,ok,accepted});
   inp.classList.add(ok?'ok':'no');
   const fb=document.getElementById('fb');fb.className='fb show '+(ok?'ok':'no');
   const tagHtml=accepted.map(a=>`<span class="ans-tag">${esc(a)}</span>`).join('');
@@ -1118,6 +1119,19 @@ async function renderRes(){
         <div class="sbox"><div class="sv" style="color:var(--green)">${pScore}</div><div class="sk">맞은 문제</div></div>
         <div class="sbox"><div class="sv" style="color:var(--red)">${total-pScore}</div><div class="sk">틀린 문제</div></div>
         <div class="sbox"><div class="sv">${m>0?m+'m ':''} ${s}s</div><div class="sk">소요 시간</div></div>
+      </div>
+      <div id="res-detail" style="margin-bottom:16px">
+        <details style="cursor:pointer">
+          <summary style="font-weight:700;font-size:14px;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px">▶ 문제별 결과 보기</summary>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+            ${pResults.map((r,i)=>{
+              const icon=r.ok?'✅':'❌';
+              const qtext=r.q.question?'<div style="font-size:13px;color:var(--text2);margin-top:2px">'+esc(r.q.question)+'</div>':'';
+              const ans=r.ok?'':`<div style="font-size:12px;color:var(--red);margin-top:2px">내 답: ${esc(r.val)} → 정답: ${r.accepted.join(', ')}</div>`;
+              return `<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;border-left:3px solid ${r.ok?'var(--green)':'var(--red)'}">${icon} <strong>${i+1}번</strong>${qtext}${ans}</div>`;
+            }).join('')}
+          </div>
+        </details>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:24px">
         <button class="btn btn-full" onclick="startPlay()">🔄 다시 풀기</button>
