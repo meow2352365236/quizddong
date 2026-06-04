@@ -114,6 +114,9 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 /* YT embed — no title shown via privacy-enhanced mode + nocookie */
 .qthumb-wrap.blurred{filter:blur(6px)}
+.yt-ctrl-bar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-top:1px solid var(--border)}
+.yt-pp-btn{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:13px;cursor:pointer;font-weight:700}
+.yt-vol-row{display:flex;align-items:center;gap:6px;flex:1}
 .yt-wrap{position:relative;border-radius:var(--r);overflow:hidden;margin-bottom:22px;border:1.5px solid var(--border);background:#000}
 /* padding-top 계산: 원래 56.25% + 상하 잘라낼 비율 보정 */
 /* 상단 52px + 하단 42px = 94px 잘라냄, iframe을 위로 올리고 크게 키움 */
@@ -350,6 +353,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
         <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;letter-spacing:.04em">✏️ 내 퀴즈 관리</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <button class="btn btn-sm" onclick="scrollToComments()">💬 댓글 보기</button>
           <button class="btn btn-sm" onclick="openEditTitle()">제목 수정</button>
           <button class="btn btn-sm" onclick="openEditDesc()">설명 수정</button>
           <button class="btn btn-sm" onclick="openEditThumb()">썸네일 변경</button>
@@ -403,8 +407,8 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 <!-- MAKER -->
 <div class="screen" id="screen-maker">
   <div class="mk-wrap">
-    <button class="back-btn" onclick="goHome()">← 홈으로</button>
-    <div class="mk-hero"><h1>✏️ 퀴즈 만들기</h1><p>나만의 퀴즈를 만들고 공유해보세요.</p></div>
+    <button class="back-btn" onclick="quizId_override?openDetail(quizId_override):goHome()">← 돌아가기</button>
+    <div class="mk-hero"><h1 id="mk-hero-ttl">✏️ 퀴즈 만들기</h1><p>나만의 퀴즈를 만들고 공유해보세요.</p></div>
     <div id="mk-week-limit" class="week-limit-notice hidden">이번 주 퀴즈 제작 횟수(3개)를 모두 사용했어요.</div>
     <div class="card">
       <div class="fl"><label>퀴즈 제목 *</label><input type="text" id="mk-ttl" placeholder="예: 포켓몬 이름 맞추기" maxlength="50"><div class="hint" id="ttl-hint" style="color:var(--red)"></div></div>
@@ -439,7 +443,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-full" onclick="goHome()">취소</button>
-      <button class="btn btn-acc btn-full btn-lg" onclick="publishQuiz()">🚀 퀴즈 올리기</button>
+      <button id="mk-pub-btn" class="btn btn-acc btn-full btn-lg" onclick="publishQuiz()">🚀 퀴즈 올리기</button>
     </div>
   </div>
 </div>
@@ -684,6 +688,10 @@ async function renderAdminQuizList(){
   const rows=await sbSelect('quizzes','select=id,title&order=created_at.desc').catch(()=>[]);
   document.getElementById('admin-quiz-list').innerHTML=rows.length?rows.map(q=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:220px">${esc(q.title)}</span><button class="btn btn-sm btn-red" onclick="adminDelById('${q.id}')">삭제</button></div>`).join(''):'<p style="font-size:13px;color:var(--text3)">퀴즈 없음</p>';
 }
+function scrollToComments(){
+  const el=document.querySelector('#screen-detail .cmt-sec');
+  if(el){el.scrollIntoView({behavior:'smooth',block:'start'});}
+}
 async function adminViewComments(){
   if(!isAdmin)return;
   const rows=await sbSelect('comments','select=*&quiz_id=eq.'+curQid+'&order=created_at.desc').catch(()=>[]);
@@ -894,12 +902,15 @@ async function openEditQuestions(){
   const rows=await sbSelect('quizzes','select=*&id=eq.'+curQid).catch(()=>[]);
   if(!rows||!rows.length){toast('로드 실패');return;}
   const quiz=rowToQuiz(rows[0]);
-  quizId=quiz.id;mkQs=[...(quiz.questions||[])];mkCat=quiz.category||'기타';
+  quizId_override=quiz.id;quizId=quiz.id;mkQs=[...(quiz.questions||[])];mkCat=quiz.category||'기타';
   document.getElementById('mk-title').value=quiz.title||'';
   document.getElementById('mk-desc').value=quiz.desc||'';
   document.getElementById('mk-private').checked=!!quiz.isPrivate;
   document.getElementById('mk-quiz-pw').value=quiz.quizPassword||'';
-  renderMkList();showScreen('maker');toast('문제를 수정한 후 저장하세요');
+  renderMkList();renderCatPick();
+  const ht=document.getElementById('mk-hero-ttl');if(ht)ht.textContent='✏️ 퀴즈 수정';
+  document.getElementById('mk-pub-btn').textContent='💾 수정 완료';
+  showScreen('maker');toast('내용을 수정한 후 저장하세요');
 }
 async function editQuizPrivacy(){
   const quiz=rowToQuiz((await sbSelect('quizzes',`select=*&id=eq.${curQid}`))[0]);
@@ -943,9 +954,8 @@ function startAudioQ(q){
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
   if(audioDur){audioTimer=setTimeout(()=>{stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width='100%';},audioDur*1000);}
   audioTick=setInterval(()=>{
-    if(!audioDur)return;
-    const el=(Date.now()-audioStart)/1000,pct=Math.min(100,el/audioDur*100);
-    const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width=pct+'%';
+    const el=(Date.now()-audioStart)/1000;
+    if(audioDur){const pct=Math.min(100,el/audioDur*100);const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width=pct+'%';}
     const c=document.getElementById('ap-cur');if(c)c.textContent=fmtSec(Math.round(el));
   },500);
 }
@@ -969,7 +979,16 @@ function updateAudVolIcon(){const i=document.getElementById('ap-vol-icon');if(!i
 
 // ═══ VIDEO ═══
 let vidVolume=0.8,vidPlayCount=0;
-function setVidVol(v){vidVolume=parseFloat(v);const vid=document.getElementById('pvid');if(vid)vid.volume=vidVolume;updateVolIcon();}
+function getVidFrame(idx){return document.getElementById('vid-iframe-'+idx);}
+function postVidMsg(idx,func,args){const f=getVidFrame(idx);if(!f)return;try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:func,args:args||''}),'*');}catch(e){}}
+let vidPaused={};
+function toggleVidPlay(idx){
+  const btn=document.getElementById('yt-pp-'+idx);
+  if(vidPaused[idx]){postVidMsg(idx,'playVideo');vidPaused[idx]=false;if(btn)btn.textContent='⏸';}
+  else{postVidMsg(idx,'pauseVideo');vidPaused[idx]=true;if(btn)btn.textContent='▶';}
+}
+function setVidVol(idx,val){postVidMsg(idx,'setVolume',[parseInt(val)]);}
+function setVidVol_old(v){vidVolume=parseFloat(v);const vid=document.getElementById('pvid');if(vid)vid.volume=vidVolume;updateVolIcon();}
 function toggleMute(){const vid=document.getElementById('pvid');if(!vid)return;vid.muted=!vid.muted;updateVolIcon();}
 function updateVolIcon(){const vid=document.getElementById('pvid'),icon=document.getElementById('vid-vol-icon');if(!icon)return;icon.textContent=(!vid||vid.muted||vidVolume===0)?'🔇':vidVolume<0.4?'🔉':'🔊';}
 function updatePlayBadge(){const q=pQ[pIdx];const badge=document.getElementById('vid-play-badge');if(!badge)return;const max=q?q.maxPlays||0:0;if(max===0){badge.textContent='';return;}const left=Math.max(0,max-vidPlayCount);badge.textContent=left>0?`재생 ${left}회 남음`:'소진';badge.style.color=left===0?'#f87171':'rgba(255,255,255,.8)';const pbtn=document.getElementById('vid-pbtn');if(pbtn){pbtn.disabled=left===0;pbtn.style.opacity=left===0?'.4':'1';}}
@@ -995,7 +1014,7 @@ async function startPlay(){
 
 function renderPQ(){
   if(pIdx>=pQ.length){renderRes();return;}
-  pDone=false;vidPlayCount=0;audPlayCount=0;clearTimer();
+  pDone=false;vidPlayCount=0;audPlayCount=0;vidPaused={};clearTimer();
   const q=pQ[pIdx],total=pQ.length,pct=Math.round(pIdx/total*100),tl=selTimeLimit||0;
   let media='';
   if(q.type==='image'){
@@ -1004,7 +1023,8 @@ function renderPQ(){
     // use youtube-nocookie to hide title
     const s=q.startSec||0,e=q.endSec;
     const end=e?`&end=${e}`:'';
-    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0" allowfullscreen allow="autoplay;encrypted-media"></iframe><div class="yt-shield"></div></div></div>`;
+    const vidId="vid-iframe-"+pIdx;
+    media=`<div class="yt-wrap" id="yt-vid-wrap-${pIdx}"><div class="yt-ratio"><iframe id="${vidId}" src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0&enablejsapi=1" allowfullscreen allow="autoplay;encrypted-media"></iframe><div class="yt-shield"></div></div><div class="yt-ctrl-bar"><button class="yt-pp-btn" id="yt-pp-${pIdx}" onclick="toggleVidPlay(${pIdx})">⏸</button><div class="yt-vol-row"><span style="font-size:14px">🔊</span><input type="range" min="0" max="100" step="5" value="80" style="flex:1;accent-color:var(--accent)" oninput="setVidVol(${pIdx},this.value)"></div></div></div>`;
   } else {
     // audio — hidden YT iframe
     const dur=(q.endSec&&q.startSec)?q.endSec-q.startSec:null;
@@ -1148,7 +1168,7 @@ function launchConfetti(rate){const canvas=document.getElementById('confetti-can
 // ═══ MY QUIZZES ═══
 async function goMyQuiz(){
   if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
-  showScreen('myquiz');
+  stopAudio();clearTimer();killVideoIframe();showScreen('myquiz');
   const rows=await sbSelect('quizzes',`owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]);
   const list=document.getElementById('myq-list');
   if(!rows.length){list.innerHTML='<div class="empty"><div class="ei">📭</div><p>아직 만든 퀴즈가 없어요.<br>첫 퀴즈를 만들어보세요!</p></div>';return;}
@@ -1162,10 +1182,11 @@ async function togglePrivacyDirect(id,cur){await sbUpdate('quizzes',`id=eq.${id}
 async function deleteMyQuiz(id){if(!confirm('이 퀴즈를 삭제할까요?'))return;await sbDelete('quizzes',`id=eq.${id}`);await sbDelete('comments',`quiz_id=eq.${id}`);toast('삭제됐어요');goMyQuiz();}
 
 // ═══ MAKER ═══
-let mkQs=[],mkThumb=null,qType='image',qImgData=null,modalAnswers=[];
+let mkQs=[],mkThumb=null,qType='image',qImgData=null,modalAnswers=[],quizId_override=null;
 function goMaker(){
   if(!currentUser){toast('로그인 후 퀴즈를 만들 수 있어요');goAuth();return;}
-  mkQs=[];mkThumb=null;mkCat='기타';qType='image';qImgData=null;modalAnswers=[];
+  stopAudio();clearTimer();killVideoIframe();
+  quizId_override=null;mkQs=[];mkThumb=null;mkCat='기타';qType='image';qImgData=null;modalAnswers=[];
   ['mk-ttl','mk-desc'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('ttl-hint').textContent='';
   document.getElementById('thumb-prev').style.display='none';
@@ -1178,7 +1199,10 @@ function goMaker(){
   document.getElementById('mk-private').addEventListener('change',function(){document.getElementById('mk-pw-row').classList.toggle('hidden',!this.checked);},{once:false});
   if(!isAdmin&&getWeekCount()>=3)document.getElementById('mk-week-limit').classList.remove('hidden');
   else document.getElementById('mk-week-limit').classList.add('hidden');
-  renderMkList();renderCatPick();showScreen('maker');
+  renderMkList();renderCatPick();
+  const ht2=document.getElementById('mk-hero-ttl');if(ht2)ht2.textContent='✏️ 퀴즈 만들기';
+  const pb=document.getElementById('mk-pub-btn');if(pb)pb.textContent='🚀 퀴즈 등록하기';
+  showScreen('maker');
 }
 function handleThumb(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{mkThumb=ev.target.result;const p=document.getElementById('thumb-prev');p.src=mkThumb;p.style.display='block';document.getElementById('thumb-ut').textContent='✅ '+f.name;};r.readAsDataURL(f);}
 const BAD=['비속어','욕설'];
@@ -1208,12 +1232,13 @@ async function publishQuiz(){
   if(thumb&&thumb.startsWith('data:')){
     try{const blob=await(await fetch(thumb)).blob();const path=`thumbs/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;thumb=await uploadFile('quizbox-files',path,blob);}catch(e){thumb=null;}
   }
-  const quizId='q_'+Date.now();
+  const quizId=quizId_override||'q_'+Date.now();
   try{
     await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:0,scores:[],created_at:Date.now(),is_private:isPrivate,is_adult:isAdult,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw});
   }catch(e){toast('업로드 실패: '+e.message);return;}
   if(!isAdmin)incWeekCount();
-  toast('🎉 퀴즈가 등록됐어요!');setTimeout(goHome,800);
+  toast(quizId_override?'✅ 퀴즈가 수정됐어요!':'🎉 퀴즈가 등록됐어요!');
+  if(quizId_override){const eid=quizId_override;quizId_override=null;setTimeout(()=>openDetail(eid),800);}else{setTimeout(goHome,800);}
 }
 function renderMkList(){
   document.getElementById('mk-qcnt').textContent=mkQs.length;
@@ -1269,7 +1294,7 @@ function saveQ(){
 
 // ═══ SETTINGS + ADMIN TOGGLE BTN ═══
 function goSettings(){
-  showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();
+  stopAudio();clearTimer();killVideoIframe();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();
   const sbns=document.getElementById('settings-auth-btns');
   const accs=document.getElementById('account-status');
   // add admin toggle
