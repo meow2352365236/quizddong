@@ -1106,7 +1106,7 @@ function subAns(){
   }
   document.getElementById('nbtn').style.display='block';
   inp.blur();
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.addEventListener('keydown',enterNext);}));
+  setTimeout(()=>{document.addEventListener('keydown',enterNext);},400);
 }
 function enterNext(e){if(e.key==='Enter'){e.preventDefault();document.removeEventListener('keydown',enterNext);nextP();}}
 function nextP(){clearST();clearTimer();stopAudio();document.removeEventListener('keydown',enterNext);pIdx++;renderPQ();}
