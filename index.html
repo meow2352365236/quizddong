@@ -1097,10 +1097,13 @@ function subAns(){
   inp.classList.add(ok?'ok':'no');
   const fb=document.getElementById('fb');fb.className='fb show '+(ok?'ok':'no');
   const curQuiz=pQ[pIdx]&&pQ[pIdx]._quiz;
-  const hideAns=curQuiz&&curQuiz.hideAnswer;
-  const displayAnswers=hideAns?[accepted[0]]:accepted;
-  const tagHtml=displayAnswers.map(a=>`<span class="ans-tag">${esc(a)}</span>`).join('');
-  fb.innerHTML=ok?`✅ 정답!<div class="ans-tags">${tagHtml}</div>`:`❌ 오답. 정답:<div class="ans-tags">${tagHtml}</div>`;
+  const hideAns=!!(curQuiz&&curQuiz.hideAnswer);
+  if(hideAns){
+    fb.innerHTML=ok?'✅ 정답!':'❌ 오답.';
+  }else{
+    const tagHtml=accepted.map(a=>`<span class="ans-tag">${esc(a)}</span>`).join('');
+    fb.innerHTML=ok?`✅ 정답!<div class="ans-tags">${tagHtml}</div>`:`❌ 오답. 정답:<div class="ans-tags">${tagHtml}</div>`;
+  }
   document.getElementById('nbtn').style.display='block';
   inp.blur();
   requestAnimationFrame(()=>requestAnimationFrame(()=>{document.addEventListener('keydown',enterNext);}));
@@ -1121,8 +1124,9 @@ function renderResultDetail(){
       inner+='<div style="font-size:12px;color:'+green+';margin-top:2px">정답: '+esc(r.val||'')+'</div>';
     }else{
       inner+='<div style="font-size:12px;color:'+red+';margin-top:2px">내 답: '+esc(r.val||'')+'</div>';
-      const dispAns=(r.q&&r.q._quiz&&r.q._quiz.hideAnswer)?[r.accepted[0]]:r.accepted;
-      inner+='<div style="font-size:12px;color:var(--text2);margin-top:2px">정답: '+dispAns.join(', ')+'</div>';
+      if(!(r.q&&r.q._quiz&&r.q._quiz.hideAnswer)){
+        inner+='<div style="font-size:12px;color:var(--text2);margin-top:2px">정답: '+r.accepted.join(', ')+'</div>';
+      }
     }
     return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;border-left:3px solid '+borderColor+'">'+icon+' '+inner+'</div>';
   }).join('');
