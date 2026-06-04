@@ -18,7 +18,7 @@ body.theme-pink{--bg:#fdf0f5;--bg2:#fff5f8;--bg3:#f5e0ea;--bg4:#eecede;--border:
 body.theme-slate{--bg:#1e2330;--bg2:#252d3d;--bg3:#2e3850;--bg4:#384460;--border:#404e68;--border2:#506080;--text:#d8e0f0;--text2:#8898c0;--text3:#506080}
 body.theme-forest{--bg:#1a2418;--bg2:#222e20;--bg3:#2a3828;--bg4:#334432;--border:#3e5040;--border2:#507050;--text:#d0e8d0;--text2:#88b088;--text3:#507050}
 body.theme-sunset{--bg:#2e1a0e;--bg2:#3a2218;--bg3:#482c20;--bg4:#583828;--border:#704030;--border2:#905040;--text:#ffe8d0;--text2:#d09070;--text3:#906050}
-body{--accent:#6d4fc2;--accent-l:rgba(109,79,194,.1);--accent-b:rgba(109,79,194,.22);--green:#1a7a42;--gbg:rgba(26,122,66,.07);--gbr:rgba(26,122,66,.22);--red:#c0392b;--rbg:rgba(192,57,43,.07);--rbr:rgba(192,57,43,.2);--r:8px;--rl:12px;--ui-scale:1;font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:calc(15px * var(--ui-scale));line-height:1.65;transition:background .25s,color .25s}
+:root{--ui-scale:1}body{--accent:#6d4fc2;--accent-l:rgba(109,79,194,.1);--accent-b:rgba(109,79,194,.22);--green:#1a7a42;--gbg:rgba(26,122,66,.07);--gbr:rgba(26,122,66,.22);--red:#c0392b;--rbg:rgba(192,57,43,.07);--rbr:rgba(192,57,43,.2);--r:8px;--rl:12px;font-family:'Noto Sans KR',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:calc(15px * var(--ui-scale));line-height:1.65;transition:background .25s,color .25s}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--bg3)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 button,input,textarea,select{font-family:inherit}.hidden{display:none!important}
 
@@ -626,7 +626,7 @@ function updateNavAuth(){
     if(accs)accs.textContent='로그인하지 않음';
   }
 }
-function goAuth(){authMode='login';document.getElementById('auth-nick').value='';document.getElementById('auth-pw').value='';document.getElementById('auth-pw2').value='';document.getElementById('auth-err').classList.remove('show');document.getElementById('auth-pw2-wrap').style.display='none';document.getElementById('auth-ttl').textContent='로그인';document.getElementById('auth-submit-btn').textContent='로그인';document.getElementById('auth-switch').innerHTML='계정이 없으신가요? <a onclick="toggleAuthMode()">회원가입</a>';showScreen('auth');}
+function goAuth(){stopAudio();clearTimer();authMode='login';document.getElementById('auth-nick').value='';document.getElementById('auth-pw').value='';document.getElementById('auth-pw2').value='';document.getElementById('auth-err').classList.remove('show');document.getElementById('auth-pw2-wrap').style.display='none';document.getElementById('auth-ttl').textContent='로그인';document.getElementById('auth-submit-btn').textContent='로그인';document.getElementById('auth-switch').innerHTML='계정이 없으신가요? <a onclick="toggleAuthMode()">회원가입</a>';showScreen('auth');}
 
 // ═══ ADMIN ═══
 let isAdmin=false;
@@ -707,8 +707,10 @@ function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classL
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtSec(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
-function goSettings(){showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();}
-async function goHome(){showScreen('home');renderCats();await renderGrid();}
+function setPageMeta(title,path){document.title=title?title+' - QuizBox':'QuizBox';try{history.pushState(null,'',path||'/');}catch(e){}}
+function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();setPageMeta('설정','/settings');}
+async function goHome(){stopAudio();clearTimer();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
+window.addEventListener('popstate',()=>{const p=location.pathname;if(p==='/settings')goSettings();else goHome();});
 
 function rowToQuiz(row){return{id:row.id,title:row.title,desc:row.description,category:row.category,thumb:row.thumb,thumbEmoji:row.thumb_emoji,questions:row.questions||[],plays:row.plays||0,scores:row.scores||[],isPrivate:row.is_private,isAdult:row.is_adult,createdAt:row.created_at,ownerId:row.owner_id,ownerNickname:row.owner_nickname,quizPassword:row.quiz_password};}
 
@@ -774,6 +776,7 @@ function loadDetail(quiz,isMine){
   const tb=document.getElementById('det-thumb-box'),ti=document.getElementById('det-thumb-img');
   if(quiz.thumb){ti.src=quiz.thumb;tb.style.display='block';}else{tb.style.display='none';}
   document.getElementById('d-cat').textContent=quiz.category||'기타';
+  setPageMeta(quiz.title,'/quiz/'+quiz.id);
   document.getElementById('d-ttl').textContent=quiz.title+(quiz.isPrivate?' 🔒':'')+(quiz.isAdult?' 🔞':'');
   const p=(quiz.plays||0)>=1000?((quiz.plays||0)/1000).toFixed(1)+'K':(quiz.plays||0);
   document.getElementById('d-meta').textContent=`▶ ${p}회 풀이 · ${max}문제${quiz.ownerNickname?' · by '+quiz.ownerNickname:''}`;
@@ -790,7 +793,7 @@ function loadDetail(quiz,isMine){
 }
 function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 function selTime(btn,t){selTimeLimit=t;document.querySelectorAll('#time-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
-function goDetail(){clearST();stopAudio();showScreen('detail');}
+function goDetail(){clearST();stopAudio();clearTimer();showScreen('detail');setPageMeta('','');}
 
 async function editQuizPrivacy(){
   const quiz=rowToQuiz((await sbSelect('quizzes',`select=*&id=eq.${curQid}`))[0]);
@@ -895,7 +898,7 @@ function renderPQ(){
     // use youtube-nocookie to hide title
     const s=q.startSec||0,e=q.endSec;
     const end=e?`&end=${e}`:'';
-    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=1" allowfullscreen allow="autoplay;encrypted-media"></iframe></div></div>`;
+    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0" allowfullscreen allow="autoplay;encrypted-media"></iframe></div></div>`;
   } else {
     // audio — hidden YT iframe
     const dur=(q.endSec&&q.startSec)?q.endSec-q.startSec:null;
