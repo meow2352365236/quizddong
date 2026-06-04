@@ -429,7 +429,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       </div>
     </div>
     <div class="card">
-      <div class="qli-h">문제 목록 <span id="mk-qcnt" style="color:var(--accent)">0</span>개 <span style="color:var(--text3);font-weight:400;font-size:11px">(최대 30개)</span></div>
+      <div class="qli-h">문제 목록 <span id="mk-qcnt" style="color:var(--accent)">0</span>개 <span style="color:var(--text3);font-weight:400;font-size:11px">(최대 500개)</span></div>
       <div id="mk-qlist"></div>
       <button class="add-q" onclick="openAddQ()">＋ 문제 추가하기</button>
     </div>
@@ -1387,7 +1387,7 @@ function openEditQ(i){
   document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'||e.key===','){e.preventDefault();addAnsChip(this.value);}};
 }
 function openAddQ(){editQIdx=-1;
-  if(mkQs.length>=30){toast('문제는 최대 30개까지 추가할 수 있어요');return;}
+  if(mkQs.length>=500){toast('문제는 최대 500개까지 추가할 수 있어요');return;}
   qType='image';qImgData=null;modalAnswers=[];
   const prevQ=document.getElementById('q-q')?document.getElementById('q-q').value:'';
   ['q-yt-aud','q-st-aud','q-en-aud','q-yt-vid','q-st-vid','q-en-vid','q-ans-inp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
