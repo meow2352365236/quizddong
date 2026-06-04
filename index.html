@@ -398,7 +398,6 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
   <div class="mk-wrap">
     <button class="back-btn" onclick="quizId_override?openDetail(quizId_override):goHome()">← 돌아가기</button>
     <div class="mk-hero"><h1 id="mk-hero-ttl">✏️ 퀴즈 만들기</h1><p>나만의 퀴즈를 만들고 공유해보세요.</p></div>
-    <div id="mk-week-limit" class="week-limit-notice hidden">이번 주 퀴즈 제작 횟수(3개)를 모두 사용했어요.</div>
     <div class="card">
       <div class="fl"><label>퀴즈 제목 *</label><input type="text" id="mk-ttl" placeholder="예: 포켓몬 이름 맞추기" maxlength="50"><div class="hint" id="ttl-hint" style="color:var(--red)"></div></div>
       <div class="fl"><label>설명</label><textarea id="mk-desc" placeholder="퀴즈에 대한 간단한 설명..."></textarea></div>
@@ -1254,7 +1253,6 @@ function goMaker(){
   document.getElementById('mk-quiz-pw').value='';
   document.getElementById('mk-pw-row').classList.add('hidden');
   document.getElementById('mk-private').addEventListener('change',function(){document.getElementById('mk-pw-row').classList.toggle('hidden',!this.checked);},{once:false});
-  else document.getElementById('mk-week-limit').classList.add('hidden');
   renderMkList();renderCatPick();
   const ht2=document.getElementById('mk-hero-ttl');if(ht2)ht2.textContent='✏️ 퀴즈 만들기';
   const pb=document.getElementById('mk-pub-btn');if(pb)pb.textContent='🚀 퀴즈 등록하기';
