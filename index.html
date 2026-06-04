@@ -1101,6 +1101,19 @@ function subAns(){
 function enterNext(e){if(e.key==='Enter'){e.preventDefault();document.removeEventListener('keydown',enterNext);nextP();}}
 function nextP(){clearST();clearTimer();stopAudio();document.removeEventListener('keydown',enterNext);pIdx++;renderPQ();}
 
+function renderResultDetail(){
+  const el=document.getElementById('res-detail-list');
+  if(!el||!pResults.length)return;
+  el.innerHTML=pResults.map(function(r,i){
+    const icon=r.ok?'✅':'❌';
+    const green='var(--green)',red='var(--red)';
+    const borderColor=r.ok?green:red;
+    let inner='<strong>'+(i+1)+'번</strong>';
+    if(r.q&&r.q.question){inner+='<div style="font-size:13px;color:var(--text2);margin-top:2px">'+esc(r.q.question)+'</div>';}
+    if(!r.ok){inner+='<div style="font-size:12px;color:'+red+';margin-top:2px">내 답: '+esc(r.val||'')+' → 정답: '+r.accepted.join(', ')+'</div>';}
+    return '<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;border-left:3px solid '+borderColor+'">'+icon+' '+inner+'</div>';
+  }).join('');
+}
 // ═══ RESULT ═══
 async function renderRes(){
   const total=pQ.length,el=Math.round((Date.now()-pStart)/1000),m=Math.floor(el/60),s=el%60,rate=Math.round(pScore/total*100);
@@ -1123,14 +1136,7 @@ async function renderRes(){
       <div id="res-detail" style="margin-bottom:16px">
         <details style="cursor:pointer">
           <summary style="font-weight:700;font-size:14px;padding:8px 0;list-style:none;display:flex;align-items:center;gap:6px">▶ 문제별 결과 보기</summary>
-          <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-            ${pResults.map((r,i)=>{
-              const icon=r.ok?'✅':'❌';
-              const qtext=r.q.question?'<div style="font-size:13px;color:var(--text2);margin-top:2px">'+esc(r.q.question)+'</div>':'';
-              const ans=r.ok?'':`<div style="font-size:12px;color:var(--red);margin-top:2px">내 답: ${esc(r.val)} → 정답: ${r.accepted.join(', ')}</div>`;
-              return `<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;border-left:3px solid ${r.ok?'var(--green)':'var(--red)'}">${icon} <strong>${i+1}번</strong>${qtext}${ans}</div>`;
-            }).join('')}
-          </div>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px" id="res-detail-list"></div>
         </details>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:24px">
@@ -1155,6 +1161,7 @@ async function renderRes(){
   if(document.getElementById('ct'))document.getElementById('ct').addEventListener('keydown',e=>{if(e.key==='Enter')postC();});
   if(currentUser&&document.getElementById('cn'))document.getElementById('cn').value=currentUser.nickname;
   if(pScore>0)launchConfetti(rate);
+  setTimeout(renderResultDetail,50);
 }
 
 function renderComments(cl,qid){
