@@ -645,7 +645,7 @@ async function dbPutQuiz(quiz) {
   const row = {
     id: safe.id,
     title: safe.title,
-    desc: safe.desc || '',
+    description: safe.desc || '',
     category: safe.category || '기타',
     thumb: safe.thumb || null,
     thumb_emoji: safe.thumbEmoji || '🎯',
@@ -685,7 +685,7 @@ function rowToQuiz(row) {
   return {
     id: row.id,
     title: row.title,
-    desc: row.desc,
+    desc: row.description,
     category: row.category,
     thumb: row.thumb,
     thumbEmoji: row.thumb_emoji,
