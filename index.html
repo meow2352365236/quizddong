@@ -1320,8 +1320,7 @@ function delQ(i){mkQs.splice(i,1);renderMkList();}
 function renderAnswerChips(){document.getElementById('q-ans-chips').innerHTML=modalAnswers.map((a,i)=>`<span class="ans-chip">${esc(a)}<button onclick="removeAnsChip(${i})">×</button></span>`).join('');}
 function removeAnsChip(i){modalAnswers.splice(i,1);renderAnswerChips();}
 function addAnsChip(val){val=val.trim();if(!val||modalAnswers.includes(val))return;modalAnswers.push(val);renderAnswerChips();document.getElementById('q-ans-inp').value='';}
-function openAddQ(){
-  function openEditQ(i){
+function openEditQ(i){
   editQIdx=i;
   const q=mkQs[i];
   qType=q.type||'image';
@@ -1353,7 +1352,7 @@ function openAddQ(){
   document.getElementById('modal-q').classList.remove('hidden');
   document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'||e.key===','){e.preventDefault();addAnsChip(this.value);}if(e.key==='Backspace'&&!this.value&&modalAnswers.length){modalAnswers.pop();renderAnswerChips();}};
 }
-editQIdx=-1;
+function openAddQ(){editQIdx=-1;
   if(mkQs.length>=30){toast('문제는 최대 30개까지 추가할 수 있어요');return;}
   qType='image';qImgData=null;modalAnswers=[];
   ['q-q','q-yt-aud','q-st-aud','q-en-aud','q-yt-vid','q-st-vid','q-en-vid','q-ans-inp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
