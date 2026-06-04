@@ -113,11 +113,12 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 .img-frame img{width:100%;height:auto;max-height:420px;object-fit:contain;display:block}
 
 /* YT embed — no title shown via privacy-enhanced mode + nocookie */
+.qthumb-wrap.blurred{filter:blur(6px)}
 .yt-wrap{position:relative;border-radius:var(--r);overflow:hidden;margin-bottom:22px;border:1.5px solid var(--border);background:#000}
 /* padding-top 계산: 원래 56.25% + 상하 잘라낼 비율 보정 */
 /* 상단 52px + 하단 42px = 94px 잘라냄, iframe을 위로 올리고 크게 키움 */
 .yt-wrap .yt-ratio{position:relative;padding-top:calc(56.25% - 42px);overflow:hidden}
-.yt-wrap iframe{position:absolute;top:-52px;left:-2px;width:calc(100% + 4px);height:calc(100% + 94px);border:none;pointer-events:auto}
+.yt-wrap iframe{position:absolute;top:-52px;left:-2px;width:calc(100% + 4px);height:calc(100% + 94px);border:none;pointer-events:none}.yt-wrap .yt-shield{position:absolute;inset:0;z-index:2}
 
 /* audio player */
 .audio-player{margin-bottom:22px;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rl);padding:20px}
@@ -342,14 +343,35 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
         <button class="btn btn-acc btn-full btn-lg" onclick="startPlay()">▶ 퀴즈 시작하기</button>
       </div>
     </div>
-    <div id="det-owner-btns" style="display:none;margin-top:10px;display:none">
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button class="btn btn-full btn-sm" onclick="editQuizPrivacy()">🔒 공개/비공개 전환</button>
-        <button class="btn btn-red btn-full btn-sm" onclick="ownerDeleteQuiz()">🗑 삭제</button>
+    <div id="det-owner-btns" style="display:none;margin-top:12px">
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;letter-spacing:.04em">✏️ 내 퀴즈 관리</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <button class="btn btn-sm" onclick="openEditTitle()">제목 수정</button>
+          <button class="btn btn-sm" onclick="openEditDesc()">설명 수정</button>
+          <button class="btn btn-sm" onclick="openEditThumb()">썸네일 변경</button>
+          <button class="btn btn-sm" onclick="openEditCategory()">카테고리</button>
+          <button class="btn btn-sm" onclick="openEditPw()">비밀번호 설정</button>
+          <button class="btn btn-sm" onclick="editQuizPrivacy()">🔒 공개/비공개</button>
+        </div>
+        <button class="btn btn-full btn-sm" style="margin-top:6px" onclick="openEditQuestions()">📝 문제 수정</button>
+        <button class="btn btn-red btn-full btn-sm" style="margin-top:6px" onclick="ownerDeleteQuiz()">🗑 퀴즈 삭제</button>
       </div>
     </div>
     <div id="det-admin-btns" style="display:none;margin-top:8px">
       <button class="btn btn-red btn-full btn-sm" onclick="adminDeleteQuiz()">🗑 삭제 (관리자)</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT QUIZ MODAL -->
+<div id="modal-edit" class="modal hidden" style="z-index:200">
+  <div class="modal-box" style="max-width:420px">
+    <div style="font-weight:700;font-size:16px;margin-bottom:14px" id="edit-modal-title">퀴즈 수정</div>
+    <div id="edit-modal-body"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn btn-full" onclick="closeEditModal()">취소</button>
+      <button class="btn btn-acc btn-full" id="edit-modal-ok" onclick="submitEdit()">저장</button>
     </div>
   </div>
 </div>
@@ -718,13 +740,14 @@ function rowToQuiz(row){return{id:row.id,title:row.title,desc:row.description,ca
 async function renderGrid(){
   let rows;try{rows=await sbSelect('quizzes','select=*&order=created_at.desc');}catch(e){toast('로드 실패');return;}
   let data=rows.map(rowToQuiz);
-  if(!isAdmin)data=data.filter(d=>!d.isPrivate||(currentUser&&d.ownerId===currentUser.id));
+  // 비공개: 모두 보임 (단, 하단 배치 + 잠금표시)
   const q=document.getElementById('sinput').value.trim().toLowerCase();
   if(activeCat!=='전체')data=data.filter(d=>d.category===activeCat);
   if(q)data=data.filter(d=>d.title.toLowerCase().includes(q)||(d.desc||'').toLowerCase().includes(q));
   if(activeSort==='plays')data.sort((a,b)=>(b.plays||0)-(a.plays||0));
   else if(activeSort==='qcount')data.sort((a,b)=>(b.questions||[]).length-(a.questions||[]).length);
   else data.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  data.sort((a,b)=>{const ap=a.isPrivate&&!(currentUser&&a.ownerId===currentUser.id)&&!isAdmin;const bp=b.isPrivate&&!(currentUser&&b.ownerId===currentUser.id)&&!isAdmin;if(ap!==bp)return ap?1:-1;return 0;});
   document.getElementById('lcnt').innerHTML=`퀴즈 <b>${data.length}</b>개`;
   const g=document.getElementById('qgrid');
   if(!data.length){g.innerHTML='<div class="empty" style="grid-column:1/-1"><div class="ei">🔍</div><p>검색 결과가 없어요.</p></div>';return;}
@@ -733,8 +756,9 @@ async function renderGrid(){
     const qn=(q.questions||[]).length;
     const isMine=currentUser&&q.ownerId===currentUser.id;
     const isLocked=q.isPrivate&&!isMine&&!isAdmin;
-    const thumb=q.thumb?`<div class="qthumb-wrap"><img src="${q.thumb}" alt=""></div>`:`<div class="qthumb-wrap"><div class="ph">${q.thumbEmoji||'🎯'}</div></div>`;
-    const lockOverlay=isLocked?`<div class="lock-overlay"><div class="lock-icon">🔒</div><div class="lock-txt">비공개</div></div>`:'';
+    const blurClass=isLocked?' blurred':'';
+    const thumb=q.thumb?`<div class="qthumb-wrap${blurClass}"><img src="${q.thumb}" alt=""></div>`:`<div class="qthumb-wrap${blurClass}"><div class="ph">${q.thumbEmoji||'🎯'}</div></div>`;
+    const lockOverlay=isLocked?`<div class="lock-overlay"><div class="lock-icon">🔒</div><div class="lock-txt">${q.quizPassword?'비밀번호':'비공개'}</div></div>`:'';
     const badges=(isMine?'<span class="qcard-badge badge-mine">내 퀴즈</span>':'')+(q.isAdult&&!isLocked?'<span class="qcard-badge badge-19" style="left:auto;right:8px">🔞</span>':'');
     return `<div class="qcard${isLocked?' qcard-locked':''}" onclick="openDetail('${q.id}')">${thumb}${lockOverlay}${badges}<div class="qcbody"><div class="qcttl">${isLocked?q.title:esc(q.title)}</div><div class="qcdesc">${isLocked?'':esc(q.desc||'')}</div><div class="qcmeta"><span class="qctag">${q.category||'기타'}</span><span>·</span><span>${qn}문제</span><span>·</span><span>▶ ${plays}</span></div></div></div>`;
   }).join('');
@@ -795,6 +819,63 @@ function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach
 function selTime(btn,t){selTimeLimit=t;document.querySelectorAll('#time-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 function goDetail(){clearST();stopAudio();clearTimer();showScreen('detail');setPageMeta('','');}
 
+// ═ EDIT QUIZ FUNCTIONS ═
+function openEditModal(title,bodyHtml,onOk){
+  window._editCb=onOk;
+  document.getElementById('edit-modal-title').textContent=title;
+  document.getElementById('edit-modal-body').innerHTML=bodyHtml;
+  document.getElementById('modal-edit').classList.remove('hidden');
+}
+function closeEditModal(){document.getElementById('modal-edit').classList.add('hidden');window._editCb=null;}
+async function submitEdit(){if(window._editCb)await window._editCb();}
+function openEditTitle(){
+  const cur=document.getElementById('d-ttl').textContent.replace(/\s*[🔒🔞]+\s*$/,'').trim();
+  openEditModal('제목 수정','<input id="ei-title" class="inp" style="width:100%;box-sizing:border-box" value="">',async()=>{
+    const v=document.getElementById('ei-title').value.trim();if(!v){toast('제목을 입력해주세요');return;}
+    await sbUpdate('quizzes','id=eq.'+curQid,{title:v});toast('제목이 변경됐어요');closeEditModal();openDetail(curQid);
+  });setTimeout(()=>{const el=document.getElementById('ei-title');if(el){el.value=cur;el.focus();}},50);
+}
+function openEditDesc(){
+  const cur=document.getElementById('d-desc').textContent;
+  openEditModal('설명 수정','<textarea id="ei-desc" class="inp" style="width:100%;min-height:80px;box-sizing:border-box"></textarea>',async()=>{
+    const v=document.getElementById('ei-desc').value.trim();
+    await sbUpdate('quizzes','id=eq.'+curQid,{description:v});toast('설명이 변경됐어요');closeEditModal();openDetail(curQid);
+  });setTimeout(()=>{const el=document.getElementById('ei-desc');if(el){el.value=cur;el.focus();}},50);
+}
+function openEditPw(){
+  openEditModal('비밀번호 설정','<p style="font-size:13px;color:var(--text3);margin-bottom:8px">비공개 퀴즈 접근 시 요구할 비밀번호예요. 비워두면 비밀번호 없음.</p><input id="ei-pw" class="inp" style="width:100%;box-sizing:border-box" placeholder="비밀번호 (비우면 제거)" type="text">',async()=>{
+    const v=document.getElementById('ei-pw').value.trim();
+    await sbUpdate('quizzes','id=eq.'+curQid,{quiz_password:v});toast(v?'비밀번호 설정됐어요':'비밀번호 제거됐어요');closeEditModal();openDetail(curQid);
+  });
+}
+function openEditCategory(){
+  const cats=['일반','K-POP','영화/드라마','스포츠','과학','역사','언어','음식','게임','기타'];
+  openEditModal('카테고리 변경','<select id="ei-cat" class="inp" style="width:100%">'+cats.map(c=>'<option>'+c+'</option>').join('')+'</select>',async()=>{
+    const v=document.getElementById('ei-cat').value;
+    await sbUpdate('quizzes','id=eq.'+curQid,{category:v});toast('카테고리 변경됐어요');closeEditModal();openDetail(curQid);
+  });
+}
+function openEditThumb(){
+  openEditModal('썸네일 변경','<input type="file" id="ei-thumb-file" accept="image/*" style="width:100%;margin-bottom:8px"><p style="font-size:12px;color:var(--text3)">새 이미지 선택 시 교체됩니다.</p>',async()=>{
+    const f=document.getElementById('ei-thumb-file').files[0];if(!f){toast('이미지를 선택해주세요');return;}
+    const r=new FileReader();await new Promise(res=>{r.onload=res;r.readAsDataURL(f);});
+    const dataUrl=r.result;const ext=(f.name.split('.').pop()||'jpg').toLowerCase();
+    const path='thumbs/'+curQid+'_'+Date.now()+'.'+ext;
+    let url=dataUrl;try{url=await uploadFile(path,f)||dataUrl;}catch(e){}
+    await sbUpdate('quizzes','id=eq.'+curQid,{thumb:url});toast('썸네일 변경됐어요');closeEditModal();openDetail(curQid);
+  });
+}
+async function openEditQuestions(){
+  const rows=await sbSelect('quizzes','select=*&id=eq.'+curQid).catch(()=>[]);
+  if(!rows||!rows.length){toast('로드 실패');return;}
+  const quiz=rowToQuiz(rows[0]);
+  quizId=quiz.id;mkQs=[...(quiz.questions||[])];mkCat=quiz.category||'기타';
+  document.getElementById('mk-title').value=quiz.title||'';
+  document.getElementById('mk-desc').value=quiz.desc||'';
+  document.getElementById('mk-private').checked=!!quiz.isPrivate;
+  document.getElementById('mk-quiz-pw').value=quiz.quizPassword||'';
+  renderMkList();showScreen('maker');toast('문제를 수정한 후 저장하세요');
+}
 async function editQuizPrivacy(){
   const quiz=rowToQuiz((await sbSelect('quizzes',`select=*&id=eq.${curQid}`))[0]);
   const newVal=!quiz.isPrivate;
@@ -898,7 +979,7 @@ function renderPQ(){
     // use youtube-nocookie to hide title
     const s=q.startSec||0,e=q.endSec;
     const end=e?`&end=${e}`:'';
-    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0" allowfullscreen allow="autoplay;encrypted-media"></iframe></div></div>`;
+    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=0" allowfullscreen allow="autoplay;encrypted-media"></iframe><div class="yt-shield"></div></div></div>`;
   } else {
     // audio — hidden YT iframe
     const dur=(q.endSec&&q.startSec)?q.endSec-q.startSec:null;
@@ -1181,7 +1262,17 @@ function goSettings(){
 (async()=>{
   updateNavAuth();
   await loadNotice();
-  await goHome();
+  const path=location.pathname;
+  const qm=path.match(/^\/quiz\/([\w-]+)$/);
+  if(qm){
+    await renderGrid();
+    await openDetail(qm[1]).catch(()=>goHome());
+  } else if(path==='/settings'){
+    await renderGrid();
+    goSettings();
+  } else {
+    await goHome();
+  }
 })();
 </script>
 </body>
