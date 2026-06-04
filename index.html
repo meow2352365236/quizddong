@@ -114,11 +114,10 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 /* YT embed — no title shown via privacy-enhanced mode + nocookie */
 .yt-wrap{position:relative;border-radius:var(--r);overflow:hidden;margin-bottom:22px;border:1.5px solid var(--border);background:#000}
-.yt-wrap .yt-ratio{position:relative;padding-top:56.25%}
-.yt-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
-/* 상단: 제목/채널 가리기, 하단: 채널버튼 가리기 */
-.yt-wrap .yt-cover-top{position:absolute;top:0;left:0;right:0;height:52px;background:#000;z-index:10;pointer-events:none}
-.yt-wrap .yt-cover-bot{position:absolute;bottom:0;left:0;right:0;height:42px;background:#000;z-index:10;pointer-events:none}
+/* padding-top 계산: 원래 56.25% + 상하 잘라낼 비율 보정 */
+/* 상단 52px + 하단 42px = 94px 잘라냄, iframe을 위로 올리고 크게 키움 */
+.yt-wrap .yt-ratio{position:relative;padding-top:calc(56.25% - 42px);overflow:hidden}
+.yt-wrap iframe{position:absolute;top:-52px;left:-2px;width:calc(100% + 4px);height:calc(100% + 94px);border:none;pointer-events:auto}
 
 /* audio player */
 .audio-player{margin-bottom:22px;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rl);padding:20px}
@@ -332,6 +331,14 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <div class="det-cfg">
         <div class="cfg-lbl">문제 수 선택</div>
         <div class="cnt-btns" id="cntbtns"></div>
+        <div class="cfg-lbl" style="margin-top:14px">문제당 제한 시간</div>
+        <div class="cnt-btns" id="time-btns">
+          <button class="cnt-btn on" onclick="selTime(this,0)">없음</button>
+          <button class="cnt-btn" onclick="selTime(this,15)">15초</button>
+          <button class="cnt-btn" onclick="selTime(this,30)">30초</button>
+          <button class="cnt-btn" onclick="selTime(this,60)">60초</button>
+          <button class="cnt-btn" onclick="selTime(this,90)">90초</button>
+        </div>
         <button class="btn btn-acc btn-full btn-lg" onclick="startPlay()">▶ 퀴즈 시작하기</button>
       </div>
     </div>
@@ -516,10 +523,6 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       </div>
     </div>
     <div class="fl">
-      <label>제한 시간 (초, 0 = 없음)</label>
-      <input type="number" id="q-timelimit" value="0" min="0" placeholder="예: 30">
-    </div>
-    <div class="fl">
       <label>정답 * <span style="font-weight:400;font-size:10px;color:var(--text3)">(Enter로 추가, 복수 가능)</span></label>
       <div class="ans-chips" id="q-ans-chips"></div>
       <input type="text" id="q-ans-inp" placeholder="정답 입력 후 Enter 또는 쉼표">
@@ -694,7 +697,7 @@ function incWeekCount(){try{const k=getWKKey(),d=JSON.parse(localStorage.getItem
 
 // ═══ UTILS ═══
 const CATS=['전체','게임','음악','문화','방송','상식','만화','음식','인물','스포츠','기타'];
-let activeCat='전체',activeSort='new',curQid=null,selQCount=null,mkCat='기타';
+let activeCat='전체',activeSort='new',curQid=null,selQCount=null,mkCat='기타',selTimeLimit=0;
 function renderCats(){document.getElementById('cats').innerHTML=CATS.map(c=>`<button class="chip${c===activeCat?' on':''}" onclick="setCat('${c}')">${c}</button>`).join('');}
 function renderCatPick(){document.getElementById('cat-pick').innerHTML=CATS.filter(c=>c!=='전체').map(c=>`<div class="cp${mkCat===c?' on':''}" onclick="setMkCat(this,'${c}')">${c}</div>`).join('');}
 function setMkCat(el,c){mkCat=c;document.querySelectorAll('.cp').forEach(x=>x.classList.toggle('on',x.textContent===c));}
@@ -777,12 +780,16 @@ function loadDetail(quiz,isMine){
   document.getElementById('d-desc').textContent=quiz.desc||'';
   const opts=[];if(max>=3)opts.push(3);if(max>=5)opts.push(5);if(max>=10)opts.push(10);if(!opts.includes(max))opts.push(max);
   document.getElementById('cntbtns').innerHTML=opts.map(n=>`<button class="cnt-btn${n===selQCount?' on':''}" onclick="selCnt(this,${n})">${n}문제</button>`).join('')+`<button class="cnt-btn${max===selQCount?' on':''}" onclick="selCnt(this,${max})">전체 (${max})</button>`;
+  // reset time limit
+  selTimeLimit=0;
+  document.querySelectorAll('#time-btns .cnt-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
   const ownerBtns=document.getElementById('det-owner-btns');
   ownerBtns.style.display=isMine?'block':'none';
   document.getElementById('det-admin-btns').style.display=isAdmin?'block':'none';
   showScreen('detail');
 }
 function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
+function selTime(btn,t){selTimeLimit=t;document.querySelectorAll('#time-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 function goDetail(){clearST();stopAudio();showScreen('detail');}
 
 async function editQuizPrivacy(){
@@ -880,7 +887,7 @@ async function startPlay(){
 function renderPQ(){
   if(pIdx>=pQ.length){renderRes();return;}
   pDone=false;vidPlayCount=0;audPlayCount=0;clearTimer();
-  const q=pQ[pIdx],total=pQ.length,pct=Math.round(pIdx/total*100),tl=q.timeLimit||0;
+  const q=pQ[pIdx],total=pQ.length,pct=Math.round(pIdx/total*100),tl=selTimeLimit||0;
   let media='';
   if(q.type==='image'){
     media=`<div class="img-frame"><img src="${q.image}" alt="" onerror="this.parentElement.style.display='none'"></div>`;
@@ -888,7 +895,7 @@ function renderPQ(){
     // use youtube-nocookie to hide title
     const s=q.startSec||0,e=q.endSec;
     const end=e?`&end=${e}`:'';
-    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=1" allowfullscreen allow="autoplay;encrypted-media"></iframe></div><div class="yt-cover-top"></div><div class="yt-cover-bot"></div></div>`;
+    media=`<div class="yt-wrap"><div class="yt-ratio"><iframe src="https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}${end}&rel=0&modestbranding=1&showinfo=0&controls=1" allowfullscreen allow="autoplay;encrypted-media"></iframe></div></div>`;
   } else {
     // audio — hidden YT iframe
     const dur=(q.endSec&&q.startSec)?q.endSec-q.startSec:null;
@@ -1114,7 +1121,7 @@ function openAddQ(){
   if(mkQs.length>=30){toast('문제는 최대 30개까지 추가할 수 있어요');return;}
   qType='image';qImgData=null;modalAnswers=[];
   ['q-q','q-yt-aud','q-st-aud','q-en-aud','q-yt-vid','q-st-vid','q-en-vid','q-ans-inp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('q-timelimit').value='0';
+  document.getElementById('q-timelimit') && (document.getElementById('q-timelimit').value='0');
   renderAnswerChips();
   const ip=document.getElementById('qimg-prev');if(ip){ip.style.display='none';ip.src='';}
   document.getElementById('qimg-ui').textContent='🖼️';document.getElementById('qimg-ut').textContent='클릭하거나 드래그';
@@ -1143,7 +1150,7 @@ function saveQ(){
   if(!question){toast('❗ 문제를 입력해주세요');return;}
   if(modalAnswers.length===0){toast('❗ 정답을 입력해주세요');return;}
   const answerStr=modalAnswers.join(', ');
-  const timeLimit=parseInt(document.getElementById('q-timelimit').value)||0;
+  const timeLimit=0; // 제한시간은 플레이 시 유저가 선택
   let q={type:qType,question,answer:answerStr,timeLimit};
   if(qType==='image'){if(!qImgData){toast('❗ 사진을 업로드해주세요');return;}q.image=qImgData;}
   else if(qType==='audio'){const id=extractYT(document.getElementById('q-yt-aud').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-aud').value);q.endSec=ptime(document.getElementById('q-en-aud').value);q.maxPlays=parseInt(document.getElementById('q-aud-maxplays').value)||0;}
