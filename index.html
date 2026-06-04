@@ -336,7 +336,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <div class="det-cat" id="d-cat"></div>
       <div class="det-ttl" id="d-ttl"></div>
       <div class="det-meta" id="d-meta"></div>
-      <button id="like-btn" class="btn btn-sm" style="margin-top:8px;gap:6px" onclick="toggleLike()"><span id="like-icon">🤍</span> <span id="like-cnt">0</span></button>
+      <button id="like-btn" class="btn btn-sm" style="margin-top:8px;gap:6px" onclick="toggleQuizLike()"><span id="like-icon">🤍</span> <span id="like-cnt">0</span></button>
       <div class="det-desc" id="d-desc"></div>
       <div class="det-cfg">
         <div class="cfg-lbl">문제 수 선택</div>
@@ -452,15 +452,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     <button class="back-btn" onclick="goHome()">← 홈으로</button>
     <h2>⚙ 설정</h2>
     <div class="settings-section"><h3>테마</h3><div class="theme-grid" id="theme-grid"></div></div>
-    <div class="settings-section">
-      <h3>인터페이스 크기</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap" id="ui-size-btns">
-        <button class="cnt-btn" onclick="setUISize(0.85,this)">작게</button>
-        <button class="cnt-btn" onclick="setUISize(1,this)">보통</button>
-        <button class="cnt-btn" onclick="setUISize(1.15,this)">크게</button>
-        <button class="cnt-btn" onclick="setUISize(1.3,this)">매우 크게</button>
-      </div>
-    </div>
+    
     <div id="admin-panel" class="hidden">
       <div class="admin-section">
         <h3>🔑 관리자 패널</h3>
@@ -1159,7 +1151,7 @@ function renderComments(cl,qid){
     const realIdx=cl.length-1-ri;
     const replies=(c.replies||[]).map((r,ridx)=>`<div class="ritem"><div class="ri-top"><span class="rn">↳ ${esc(r.nick)}</span>${isAdmin?`<button class="ci-del" onclick="deleteReply('${qid}',${realIdx},${ridx})">✕</button>`:''}</div><div class="rt">${esc(r.text)}</div><div class="rd">${r.time}</div></div>`).join('');
     const likedKey=`like_${qid}_${realIdx}`;const liked=localStorage.getItem(likedKey)==='1';
-    return `<div class="citem"><div class="ci-top"><span class="cn">${esc(c.nick)}</span><div class="ci-actions"><button class="ci-like${liked?' liked':''}" onclick="toggleLike('${qid}',${realIdx})">♥ ${c.likes||0}</button><button class="ci-reply-btn" onclick="toggleReplyForm(${realIdx})">↩ 답글</button>${isAdmin?`<button class="ci-del" onclick="deleteComment('${qid}',${realIdx})">✕</button>`:''}</div></div><div class="ct">${esc(c.text)}</div><div class="cd">${c.time}</div>${replies?`<div class="reply-list">${replies}</div>`:''}<div class="reply-form" id="rf-${realIdx}" style="display:none;gap:6px"><input type="text" id="ri-${realIdx}" placeholder="닉네임" style="max-width:80px"><input type="text" id="rt-${realIdx}" placeholder="답글 입력"><button class="btn btn-acc btn-sm" onclick="postReply('${qid}',${realIdx})">등록</button></div></div>`;
+    return `<div class="citem"><div class="ci-top"><span class="cn">${esc(c.nick)}</span><div class="ci-actions"><button class="ci-like${liked?' liked':''}" onclick="toggleCommentLike('${qid}',${realIdx})">♥ ${c.likes||0}</button><button class="ci-reply-btn" onclick="toggleReplyForm(${realIdx})">↩ 답글</button>${isAdmin?`<button class="ci-del" onclick="deleteComment('${qid}',${realIdx})">✕</button>`:''}</div></div><div class="ct">${esc(c.text)}</div><div class="cd">${c.time}</div>${replies?`<div class="reply-list">${replies}</div>`:''}<div class="reply-form" id="rf-${realIdx}" style="display:none;gap:6px"><input type="text" id="ri-${realIdx}" placeholder="닉네임" style="max-width:80px"><input type="text" id="rt-${realIdx}" placeholder="답글 입력"><button class="btn btn-acc btn-sm" onclick="postReply('${qid}',${realIdx})">등록</button></div></div>`;
   }).join('');
 }
 function toggleReplyForm(idx){const f=document.getElementById('rf-'+idx);if(f)f.style.display=f.style.display==='flex'?'none':'flex';}
@@ -1182,7 +1174,27 @@ async function postReply(qid,idx){
   cl[idx].replies.push({nick,text,time:new Date().toLocaleString('ko-KR')});
   await putComments(qid,cl);toast('답글이 등록됐어요!');renderRes();
 }
-async function toggleLike(qid,idx){
+// ── QUIZ LIKE ──
+function getLikeKey(id){return 'qbox_like_'+id;}
+function hasLiked(id){return localStorage.getItem(getLikeKey(id))==='1';}
+async function toggleQuizLike(){
+  if(!curQid)return;
+  const liked=hasLiked(curQid);
+  const delta=liked?-1:1;
+  localStorage.setItem(getLikeKey(curQid),liked?'0':'1');
+  const rows=await sbSelect('quizzes','select=likes&id=eq.'+curQid).catch(()=>[]);
+  const cur=(rows&&rows[0]&&rows[0].likes)||0;
+  const newVal=Math.max(0,cur+delta);
+  await sbUpdate('quizzes','id=eq.'+curQid,{likes:newVal});
+  updateLikeUI(newVal,!liked);
+}
+function updateLikeUI(cnt,liked){
+  const icon=document.getElementById('like-icon');
+  const cntEl=document.getElementById('like-cnt');
+  if(icon)icon.textContent=liked?'❤️':'🤍';
+  if(cntEl)cntEl.textContent=cnt||0;
+}
+async function toggleCommentLike(qid,idx){
   const likedKey=`like_${qid}_${idx}`;const liked=localStorage.getItem(likedKey)==='1';
   const cl=await getComments(qid);cl[idx].likes=(cl[idx].likes||0)+(liked?-1:1);
   await putComments(qid,cl);localStorage.setItem(likedKey,liked?'0':'1');renderRes();
@@ -1233,7 +1245,7 @@ async function togglePrivacyDirect(id,cur){await sbUpdate('quizzes',`id=eq.${id}
 async function deleteMyQuiz(id){if(!confirm('이 퀴즈를 삭제할까요?'))return;await sbDelete('quizzes',`id=eq.${id}`);await sbDelete('comments',`quiz_id=eq.${id}`);toast('삭제됐어요');goMyQuiz();}
 
 // ═══ MAKER ═══
-let mkQs=[],mkThumb=null,qType='image',qImgData=null,modalAnswers=[],quizId_override=null;
+let mkQs=[],mkThumb=null,qType='image',qImgData=null,modalAnswers=[],quizId_override=null,editQIdx=-1;
 function goMaker(){
   if(!currentUser){toast('로그인 후 퀴즈를 만들 수 있어요');goAuth();return;}
   stopAudio();clearTimer();killVideoIframe();
@@ -1285,7 +1297,13 @@ async function publishQuiz(){
   }
   const quizId=quizId_override||'q_'+Date.now();
   try{
-    await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:0,scores:[],created_at:Date.now(),is_private:isPrivate,is_adult:isAdult,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw});
+    // 수정 모드면 plays/scores/created_at 보존
+  let existingData={plays:0,scores:[],created_at:Date.now()};
+  if(quizId_override){
+    try{const ex=await sbSelect('quizzes','select=plays,scores,created_at&id=eq.'+quizId_override);
+    if(ex&&ex[0]){existingData={plays:ex[0].plays||0,scores:ex[0].scores||[],created_at:ex[0].created_at||Date.now()};}}catch(e){}
+  }
+  await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:existingData.plays,scores:existingData.scores,created_at:existingData.created_at,is_private:isPrivate,is_adult:isAdult,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw});
   }catch(e){toast('업로드 실패: '+e.message);return;}
   if(!isAdmin)incWeekCount();
   toast(quizId_override?'✅ 퀴즈가 수정됐어요!':'🎉 퀴즈가 등록됐어요!');
@@ -1294,7 +1312,7 @@ async function publishQuiz(){
 function renderMkList(){
   document.getElementById('mk-qcnt').textContent=mkQs.length;
   const list=document.getElementById('mk-qlist');if(!mkQs.length){list.innerHTML='';return;}
-  list.innerHTML=mkQs.map((q,i)=>{const[pc,lbl]={image:['qip-img','📷 사진'],audio:['qip-aud','🎧 소리'],video:['qip-vid','🎬 영상']}[q.type];return`<div class="qitem"><div class="qino">${i+1}</div><div class="qibody"><span class="qipill ${pc}">${lbl}</span><div class="qiq">${esc(q.question)}</div><div class="qia">정답: ${esc(q.answer)}${q.timeLimit>0?' · ⏱'+q.timeLimit+'초':''}</div></div><button class="qdel" onclick="delQ(${i})">삭제</button></div>`;}).join('');
+  list.innerHTML=mkQs.map((q,i)=>{const[pc,lbl]={image:['qip-img','📷 사진'],audio:['qip-aud','🎧 소리'],video:['qip-vid','🎬 영상']}[q.type];return`<div class="qitem"><div class="qino">${i+1}</div><div class="qibody"><span class="qipill ${pc}">${lbl}</span><div class="qiq">${esc(q.question)}</div><div class="qia">정답: ${esc(q.answer)}${q.timeLimit>0?' · ⏱'+q.timeLimit+'초':''}</div></div><button class="qdel" onclick="openEditQ(${i})">수정</button><button class="qdel" onclick="delQ(${i})">삭제</button></div>`;}).join('');
 }
 function delQ(i){mkQs.splice(i,1);renderMkList();}
 
@@ -1303,6 +1321,39 @@ function renderAnswerChips(){document.getElementById('q-ans-chips').innerHTML=mo
 function removeAnsChip(i){modalAnswers.splice(i,1);renderAnswerChips();}
 function addAnsChip(val){val=val.trim();if(!val||modalAnswers.includes(val))return;modalAnswers.push(val);renderAnswerChips();document.getElementById('q-ans-inp').value='';}
 function openAddQ(){
+  function openEditQ(i){
+  editQIdx=i;
+  const q=mkQs[i];
+  qType=q.type||'image';
+  qImgData=null;
+  modalAnswers=q.answer?q.answer.split(',').map(s=>s.trim()).filter(Boolean):[];
+  const qEl=document.getElementById('q-q');if(qEl)qEl.value=q.question||'';
+  document.querySelectorAll('.tc').forEach(c=>c.classList.toggle('on',c.dataset.t===qType));
+  document.getElementById('qf-img').classList.toggle('hidden',qType!=='image');
+  document.getElementById('qf-aud').classList.toggle('hidden',qType!=='audio');
+  document.getElementById('qf-vid').classList.toggle('hidden',qType!=='video');
+  if(qType==='image'){
+    if(q.image){const p=document.getElementById('qimg-prev');if(p){p.src=q.image;p.style.display='block';}document.getElementById('qimg-ui').textContent='✅';document.getElementById('qimg-ut').textContent='현재 이미지';}
+    else{const ip=document.getElementById('qimg-prev');if(ip){ip.style.display='none';ip.src='';}document.getElementById('qimg-ui').textContent='🖼️';document.getElementById('qimg-ut').textContent='클릭하거나 드래그';}
+    document.getElementById('qimg-f').value='';
+  }else if(qType==='audio'){
+    const au=document.getElementById('q-yt-aud');if(au)au.value=q.ytId||'';
+    const as_=document.getElementById('q-st-aud');if(as_)as_.value=q.startSec||'';
+    const ae=document.getElementById('q-en-aud');if(ae)ae.value=q.endSec||'';
+    const am=document.getElementById('q-aud-maxplays');if(am)am.value=q.maxPlays||0;
+    if(q.ytId){const w=document.getElementById('q-ytprev-aud');const f=document.getElementById('q-ytif-aud');if(w&&f){w.style.display='block';f.src='https://www.youtube.com/embed/'+q.ytId+'?rel=0&modestbranding=1&enablejsapi=1';}}
+  }else if(qType==='video'){
+    const vu=document.getElementById('q-yt-vid');if(vu)vu.value=q.ytId||'';
+    const vs=document.getElementById('q-st-vid');if(vs)vs.value=q.startSec||'';
+    const ve=document.getElementById('q-en-vid');if(ve)ve.value=q.endSec||'';
+    const vm=document.getElementById('q-vid-maxplays');if(vm)vm.value=q.maxPlays||0;
+    if(q.ytId){const w=document.getElementById('q-ytprev-vid');const f=document.getElementById('q-ytif-vid');if(w&&f){w.style.display='block';f.src='https://www.youtube.com/embed/'+q.ytId+'?rel=0&modestbranding=1&enablejsapi=1';}}
+  }
+  renderAnswerChips();
+  document.getElementById('modal-q').classList.remove('hidden');
+  document.getElementById('q-ans-inp').onkeydown=function(e){if(e.key==='Enter'||e.key===','){e.preventDefault();addAnsChip(this.value);}if(e.key==='Backspace'&&!this.value&&modalAnswers.length){modalAnswers.pop();renderAnswerChips();}};
+}
+editQIdx=-1;
   if(mkQs.length>=30){toast('문제는 최대 30개까지 추가할 수 있어요');return;}
   qType='image';qImgData=null;modalAnswers=[];
   ['q-q','q-yt-aud','q-st-aud','q-en-aud','q-yt-vid','q-st-vid','q-en-vid','q-ans-inp'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
@@ -1351,7 +1402,8 @@ function saveQ(){
   if(qType==='image'){if(!qImgData){toast('❗ 사진을 업로드해주세요');return;}q.image=qImgData;}
   else if(qType==='audio'){const id=extractYT(document.getElementById('q-yt-aud').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-aud').value);q.endSec=ptime(document.getElementById('q-en-aud').value);q.maxPlays=parseInt(document.getElementById('q-aud-maxplays').value)||0;}
   else{const id=extractYT(document.getElementById('q-yt-vid').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-vid').value);q.endSec=ptime(document.getElementById('q-en-vid').value);q.maxPlays=parseInt(document.getElementById('q-vid-maxplays').value)||0;}
-  mkQs.push(q);closeModal();renderMkList();toast('✅ 문제가 추가됐어요!');
+  if(typeof editQIdx==='number'&&editQIdx>=0){mkQs[editQIdx]=q;editQIdx=-1;closeModal();renderMkList();toast('✅ 문제가 수정됐어요!');}
+  else{mkQs.push(q);closeModal();renderMkList();toast('✅ 문제가 추가됐어요!');}
 }
 
 // ═══ SETTINGS + ADMIN TOGGLE BTN ═══
