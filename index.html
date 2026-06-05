@@ -315,7 +315,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 <!-- HOME -->
 <div class="screen active" id="screen-home">
   <div class="hero"><div class="hero-in">
-    <div class="sbar"><input type="text" id="sinput" placeholder="퀴즈 검색어를 입력하세요." oninput="renderGrid()"><button onclick="renderGrid()">🔍</button></div>
+    <div class="sbar"><input type="text" id="sinput" placeholder="퀴즈 검색어를 입력하세요." oninput="renderGrid()" autocomplete="off"><button onclick="renderGrid()">🔍</button></div>
     <div class="cats" id="cats"></div>
   </div></div>
   <div class="page">
@@ -502,9 +502,9 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <div class="auth-ttl" id="auth-ttl">로그인</div>
       <div class="auth-sub" id="auth-sub">퀴즈캣에 오신 것을 환영해요</div>
       <div class="auth-err" id="auth-err"></div>
-      <div class="fl"><label>닉네임</label><input type="text" id="auth-nick" placeholder="닉네임 입력" maxlength="20"></div>
-      <div class="fl"><label>비밀번호</label><input type="password" id="auth-pw" placeholder="비밀번호 입력"></div>
-      <div class="fl" id="auth-pw2-wrap" style="display:none"><label>비밀번호 확인</label><input type="password" id="auth-pw2" placeholder="비밀번호 재입력"></div>
+      <div class="fl"><label>닉네임</label><input type="text" id="auth-nick" placeholder="닉네임 입력" maxlength="20" autocomplete="off"></div>
+      <div class="fl"><label>비밀번호</label><input type="password" id="auth-pw" placeholder="비밀번호 입력" autocomplete="new-password"></div>
+      <div class="fl" id="auth-pw2-wrap" style="display:none"><label>비밀번호 확인</label><input type="password" id="auth-pw2" placeholder="비밀번호 재입력" autocomplete="new-password"></div>
       <button class="btn btn-acc btn-full btn-lg" onclick="submitAuth()" id="auth-submit-btn">로그인</button>
       <div class="auth-switch" id="auth-switch">계정이 없으신가요? <a onclick="toggleAuthMode()">회원가입</a></div>
     </div>
@@ -1274,8 +1274,6 @@ function renderResultDetail(){
 // ═══ RESULT ═══
 async function renderRes(){
   const total=pQ.length,el=Math.round((Date.now()-pStart)/1000),m=Math.floor(el/60),s=el%60,rate=Math.round(pScore/total*100);
-  let pctText='첫 번째 도전자 🎉';
-  try{const row=(await sbSelect('quizzes',`select=scores&id=eq.${curQid}`))[0];const scores=[...(row.scores||[]),rate];await sbUpdate('quizzes',`id=eq.${curQid}`,{scores:scores.slice(-1000)});if(scores.length>1){const below=scores.filter(sc=>sc<rate).length;pctText=`상위 <strong>${100-Math.round(below/(scores.length-1)*100)}%</strong>`;}}catch(e){}
   const cl=await sbSelect('comments',`quiz_id=eq.${curQid}`).then(r=>r[0]?r[0].comments:[]).catch(()=>[]);
   const todayKey='cmt_'+curQid+'_'+new Date().toDateString();
   const cmtLeft=3-parseInt(localStorage.getItem(todayKey)||'0');
@@ -1284,7 +1282,6 @@ async function renderRes(){
       <div class="sring"><div class="big">${pScore}</div><div class="sm">/ ${total}</div></div>
       <div class="res-ttl">${rate>=80?'🏆 훌륭해요!':rate>=50?'👏 잘했어요!':'📚 다시 도전!'}</div>
       <div class="res-msg">${rate>=80?'정말 뛰어난 실력이에요!':rate>=50?'조금만 더 공부하면 완벽!':'포기하지 말고 다시 도전해봐요!'}</div>
-      <div class="res-pct">✨ ${pctText}</div>
       <div class="stat-r">
         <div class="sbox"><div class="sv" style="color:var(--green)">${pScore}</div><div class="sk">맞은 문제</div></div>
         <div class="sbox"><div class="sv" style="color:var(--red)">${total-pScore}</div><div class="sk">틀린 문제</div></div>
