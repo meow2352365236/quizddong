@@ -464,6 +464,12 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
           <textarea id="admin-notice-inp" style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r);padding:9px 12px;color:var(--text);font-size:14px;resize:vertical;min-height:60px;outline:none" placeholder="공지 내용..."></textarea>
           <button class="btn btn-red btn-sm" style="align-self:flex-end" onclick="saveNotice()">공지 저장</button>
         </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+          <label style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.05em">업데이트 로그</label>
+          <input id="admin-version-inp" class="inp" placeholder="버전 (예: v1.2.3)" style="margin-bottom:0">
+          <textarea id="admin-updatelog-inp" style="background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r);padding:9px 12px;color:var(--text);font-size:13px;resize:vertical;min-height:80px;outline:none" placeholder="업데이트 내용..."></textarea>
+          <button class="btn btn-red btn-sm" style="align-self:flex-end" onclick="saveUpdateLog()">로그 저장</button>
+        </div>
         <div style="margin-top:16px">
           <div style="font-size:11px;font-weight:700;color:var(--red);text-transform:uppercase;margin-bottom:10px">전체 퀴즈 관리</div>
           <div id="admin-quiz-list"></div>
@@ -478,6 +484,10 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     <div class="settings-section">
       <h3>정보</h3>
       <p style="font-size:13px;color:var(--text2)">데이터는 Supabase에 저장됩니다. 새로고침하면 최신 데이터를 불러와요.</p>
+    </div>
+    <div class="settings-section">
+      <h3>📋 업데이트 로그</h3>
+      <div id="update-log-display" style="font-size:13px;color:var(--text2);white-space:pre-wrap;line-height:1.7"></div>
     </div>
   </div>
 </div>
@@ -643,7 +653,7 @@ function updateNavAuth(){
   const sbns=document.getElementById('settings-auth-btns');
   const accs=document.getElementById('account-status');
   if(currentUser){
-    area.innerHTML=`<span class="nav-user">👤 ${esc(currentUser.nickname)}</span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
+    area.innerHTML=`<span class="nav-user">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}</span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
     if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="goMyQuiz()">📋 내 퀴즈 보기</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
     if(accs)accs.textContent=`로그인됨: ${currentUser.nickname}`;
   } else {
@@ -718,6 +728,31 @@ async function adminDeleteQuiz(){if(!isAdmin)return;if(!confirm('삭제할까요
 async function adminDelById(id){if(!confirm('삭제할까요?'))return;await sbDelete('quizzes',`id=eq.${id}`);toast('삭제됐어요');renderAdminQuizList();}
 
 // NOTICE
+async function saveUpdateLog(){
+  const ver=document.getElementById('admin-version-inp').value.trim();
+  const log=document.getElementById('admin-updatelog-inp').value.trim();
+  if(!log)return;
+  const content=ver?'['+ver+']\n'+log:log;
+  await sbUpdate('notices','id=eq.2',{content}).catch(async()=>{
+    await sbUpsert('notices',{id:2,content});
+  });
+  document.getElementById('update-log-display').textContent=content;
+  toast('업데이트 로그 저장됐어요');
+}
+async function loadUpdateLog(){
+  try{
+    const r=await sbSelect('notices','select=content&id=eq.2');
+    if(r[0]){
+      const el=document.getElementById('update-log-display');if(el)el.textContent=r[0].content;
+      const vi=document.getElementById('admin-version-inp');const li=document.getElementById('admin-updatelog-inp');
+      if(r[0].content){
+        const m=r[0].content.match(/^\[([^\]]+)\]\n([\s\S]*)$/);
+        if(m){if(vi)vi.value=m[1];if(li)li.value=m[2];}
+        else{if(li)li.value=r[0].content;}
+      }
+    }
+  }catch(e){}
+}
 async function saveNotice(){const txt=document.getElementById('admin-notice-inp').value.trim();if(!txt)return;await sbUpdate('notices','id=eq.1',{content:txt});document.getElementById('notice-txt').textContent=txt;toast('공지 저장됐어요');}
 async function loadNotice(){try{const r=await sbSelect('notices','select=content&id=eq.1');if(r[0]){document.getElementById('notice-txt').textContent=r[0].content;const i=document.getElementById('admin-notice-inp');if(i)i.value=r[0].content;}}catch(e){}}
 
@@ -770,7 +805,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtSec(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
 function setPageMeta(title,path){document.title=title?title+' - 퀴즈캣':'퀴즈캣';try{history.pushState(null,'',path||'/');}catch(e){}}
-function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();setPageMeta('설정','/settings');}
+function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();setPageMeta('설정','/settings');}
 async function goHome(){stopAudio();clearTimer();killVideoIframe();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
 window.addEventListener('popstate',()=>{const p=location.pathname;if(p==='/settings')goSettings();else goHome();});
 
@@ -1080,8 +1115,23 @@ function renderPQ(){
   inp.addEventListener('keydown',e=>{
     if(e.key==='Enter'){subAns();return;}
     if(e.key===' '&&!e.target.value&&pQ[pIdx]&&pQ[pIdx].type==='audio'){
-      e.preventDefault();
-      toggleAudio(pQ[pIdx]);
+      e.preventDefault();toggleAudio(pQ[pIdx]);return;
+    }
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      const q=pQ[pIdx];if(!q)return;
+      const step=5;
+      if(q.type==='audio'){
+        e.preventDefault();
+        audVol=Math.min(1,Math.max(0,audVol+(e.key==='ArrowRight'?0.05:-0.05)));
+        audVol=Math.round(audVol*20)/20;
+        const sl=document.getElementById('ap-vol');if(sl)sl.value=audVol;
+        setAudVol(audVol);
+      } else if(q.type==='video'){
+        e.preventDefault();
+        vidVolPct=Math.min(100,Math.max(0,vidVolPct+(e.key==='ArrowRight'?step:-step)));
+        const sl=document.querySelector('.yt-ctrl-bar input[type=range]');if(sl)sl.value=vidVolPct;
+        setVidVol(pIdx,vidVolPct);
+      }
     }
   });
   inp.focus();
@@ -1450,7 +1500,7 @@ function saveQ(){
 
 // ═══ SETTINGS + ADMIN TOGGLE BTN ═══
 function goSettings(){
-  stopAudio();clearTimer();killVideoIframe();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();
+  stopAudio();clearTimer();killVideoIframe();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();
   const sbns=document.getElementById('settings-auth-btns');
   const accs=document.getElementById('account-status');
   // add admin toggle
@@ -1468,6 +1518,7 @@ function goSettings(){
 (async()=>{
   updateNavAuth();
   await loadNotice();
+  await loadUpdateLog();
   const path=location.pathname;
   const qm=path.match(/^\/quiz\/([\w-]+)$/);
   if(qm){
