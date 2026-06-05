@@ -988,7 +988,7 @@ async function ownerDeleteQuiz(){
 }
 
 // ═══ AUDIO ═══
-let audioPlaying=false,audioTimer=null,audioTick=null,audioStart=0,audioDur=null,audPlayCount=0,audVol=0.8;
+let audioPlaying=false,audioTimer=null,audioTick=null,audioStart=0,audioDur=null,audPlayCount=0,audVol=0.8,audioPaused=false,audioPausedElapsed=0;
 // ── Audio: hidden iframe + GainNode for real volume control ──
 let audioCtx=null, gainNode=null, audStream=null;
 function getAudioCtx(){if(!audioCtx){audioCtx=new(window.AudioContext||window.webkitAudioContext)();gainNode=audioCtx.createGain();gainNode.gain.value=audVol;gainNode.connect(audioCtx.destination);}return audioCtx;}
@@ -996,7 +996,7 @@ function stopAudio(){
   if(audioTimer)clearTimeout(audioTimer);if(audioTick)clearInterval(audioTick);
   // reset iframe src to stop YT playback
   const f=document.getElementById('yt-audio-frame');if(f)f.src='about:blank';
-  audioPlaying=false;
+  audioPlaying=false;audioPaused=false;audioPausedElapsed=0;
 }
 function killVideoIframe(){
   const wrap=document.getElementById('play-media-wrap');
@@ -1034,13 +1034,37 @@ function restartAudio(q){
   const b=document.getElementById('ap-play-btn');if(b)b.textContent='⏸';
 }
 function resumeOrPauseAudio(q){
+  const f=document.getElementById('yt-audio-frame');
   if(audioPlaying){
-    stopAudio();
+    // 일시정지: elapsed 저장 후 YT pauseVideo
+    audioPausedElapsed=(Date.now()-audioStart)/1000;
+    audioPaused=true;
+    if(audioTimer){clearTimeout(audioTimer);audioTimer=null;}
+    if(audioTick){clearInterval(audioTick);audioTick=null;}
+    audioPlaying=false;
+    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:''}),'*');}catch(e){}
     const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';
-  } else {
-    // resume: restart from beginning (YT iframe can't seek to paused position easily)
-    startAudioQ(q);
+  } else if(audioPaused&&f&&f.src&&f.src!=='about:blank'){
+    // 이어서: YT playVideo, 타이머/틱 재시작
+    const alreadyElapsed=audioPausedElapsed;
+    audioStart=Date.now()-alreadyElapsed*1000;
+    audioPaused=false;
+    audioPlaying=true;
+    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'playVideo',args:''}),'*');}catch(e){}
+    if(audioDur){
+      const remaining=(audioDur-alreadyElapsed)*1000;
+      if(remaining>0){audioTimer=setTimeout(()=>{stopAudio();const b2=document.getElementById('ap-play-btn');if(b2)b2.textContent='▶';const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width='100%';},remaining);}
+    }
+    audioTick=setInterval(()=>{
+      const el=(Date.now()-audioStart)/1000;
+      const f2=document.getElementById('ap-bar-fill');
+      if(audioDur){if(f2)f2.style.width=Math.min(100,el/audioDur*100)+'%';}
+      const c=document.getElementById('ap-cur');if(c)c.textContent=fmtSec(Math.round(el));
+    },300);
     const b=document.getElementById('ap-play-btn');if(b)b.textContent='⏸';
+  } else {
+    // 처음 재생
+    startAudioQ(q);
   }
 }
 function toggleAudio(q){if(audioPlaying){stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';}else{startAudioQ(q);}}
