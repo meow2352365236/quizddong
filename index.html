@@ -590,7 +590,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 <script>
 // ═══ SUPABASE 설정 ═══
-const SUPABASE_URL = "https://bskhnhjtsaqnavuesbfc.supabase.co";
+const SUPABASE_URL = "https://bskhnhjtsaqnavuesbfc.supabase.co/";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJza2huaGp0c2FxbmF2dWVzYmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MjUwMDksImV4cCI6MjA5NjEwMTAwOX0.-7GYNqBItBmwALCMmjrcIkHtzHznmG6ZQ2J29w7jmNc";
 const ADMIN_PW = 'quizboxadmin2025';
 
@@ -907,6 +907,7 @@ function loadDetail(quiz,isMine){
   document.querySelectorAll('#time-btns .cnt-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
 
   document.getElementById('det-admin-btns').style.display=isAdmin?'block':'none';
+  loadDetComments(quiz.id);
   showScreen('detail');
 }
 function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
@@ -1318,6 +1319,40 @@ async function renderRes(){
   setTimeout(renderResultDetail,50);
 }
 
+async function loadDetComments(qid){
+  const wrap=document.getElementById('det-cmt-wrap');if(!wrap)return;
+  let cl=[];try{cl=await sbSelect('comments',`select=*&quiz_id=eq.${qid}&order=created_at.asc`);}catch(e){}
+  const cmtLeft=getCmtLeft();
+  wrap.innerHTML=`<div class="cmt-sec">
+    <h3>💬 댓글 <span style="color:var(--text3);font-weight:400;font-size:12px">${cl.length}개</span></h3>
+    <div class="cmt-warn">⚠️ 욕설·비방 등 부적절한 댓글은 법적 책임을 질 수 있습니다.</div>
+    ${cmtLeft>0
+      ?`<div class="cmt-limit">오늘 남은 댓글: <b>${cmtLeft}회</b></div>
+         <div class="cmt-form">
+           <input type="text" id="det-cn" placeholder="${currentUser?currentUser.nickname:'닉네임'}" ${currentUser?'readonly':''} style="${currentUser?'max-width:110px;background:var(--bg3)':'max-width:110px'}">
+           <input type="text" id="det-ct" placeholder="한 마디 남겨보세요!" autocomplete="off">
+           <button class="btn btn-acc btn-sm" onclick="postDetC('${qid}')">등록</button>
+         </div>`
+      :`<div class="cmt-limit" style="color:var(--red)">오늘 댓글 한도(3회) 도달.</div>`
+    }
+    <div class="cmt-list" id="det-cmt-list">${renderComments(cl,qid)}</div>
+  </div>`;
+  if(currentUser&&document.getElementById('det-cn'))document.getElementById('det-cn').value=currentUser.nickname;
+  const dtEl=document.getElementById('det-ct');
+  if(dtEl)dtEl.addEventListener('keydown',e=>{if(e.key==='Enter')postDetC(qid);});
+}
+async function postDetC(qid){
+  const n=document.getElementById('det-cn'),t=document.getElementById('det-ct');
+  if(!n||!t)return;
+  const nick=n.value.trim(),txt=t.value.trim();
+  if(!nick){toast('닉네임을 입력해주세요');return;}
+  if(!txt){toast('댓글을 입력해주세요');return;}
+  if(getCmtLeft()<=0){toast('오늘 댓글 한도 도달');return;}
+  const id='c_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  await sbUpsert('comments',{id,quiz_id:qid,nickname:nick,content:txt,created_at:new Date().toISOString(),likes:0,replies:[]});
+  useCmt();t.value='';
+  loadDetComments(qid);
+}
 function renderComments(cl,qid){
   if(!cl.length)return'<div class="no-cmt">아직 댓글이 없어요!</div>';
   return cl.slice().reverse().map((c,ri)=>{
@@ -1550,7 +1585,7 @@ function handleQImg(e){const f=e.target.files[0];if(!f)return;const r=new FileRe
 const qz=document.getElementById('qimg-zone');
 qz.addEventListener('dragover',e=>{e.preventDefault();qz.classList.add('drag')});qz.addEventListener('dragleave',()=>qz.classList.remove('drag'));
 qz.addEventListener('drop',e=>{e.preventDefault();qz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){document.getElementById('qimg-f').files=e.dataTransfer.files;handleQImg({target:{files:[f]}});}});
-function extractYT(u){const m=u.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
+function extractYT(u){const m=u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
 function ptime(s){if(!s||!s.trim())return null;s=s.trim();if(s.includes(':')){const p=s.split(':');return parseInt(p[0])*60+parseInt(p[1]);}return parseInt(s)||null;}
 async function prevQYT(type){
   const id=extractYT(document.getElementById(`q-yt-${type}`).value);
