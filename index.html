@@ -125,6 +125,8 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 /* audio player */
 .audio-player{margin-bottom:22px;background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rl);padding:20px}
+.ap-reveal{margin-top:14px;border-radius:var(--r);overflow:hidden;display:none}
+.ap-reveal iframe{width:100%;aspect-ratio:16/9;border:none;display:block}
 .ap-top{display:flex;align-items:center;gap:14px}
 .ap-icon{width:52px;height:52px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .ap-info{flex:1}.ap-label{font-size:12px;color:var(--text3);margin-bottom:3px}.ap-title{font-size:14px;font-weight:700;color:var(--text)}
@@ -865,6 +867,10 @@ async function openDetail(id){
     document.getElementById('modal-pw').classList.remove('hidden');
     return;
   }
+  if(isLocked&&!quiz.quizPassword){
+    toast('비공개 퀴즈예요.');
+    return;
+  }
   loadDetail(quiz,isMine);
 }
 function closePwModal(){document.getElementById('modal-pw').classList.add('hidden');pendingDetailId=null;}
@@ -1022,6 +1028,21 @@ function startAudioQ(q){
   },300);
 }
 function updateAudBadge(q){const max=q?q.maxPlays||0:0;const b=document.getElementById('ap-badge');if(!b)return;if(max===0){b.textContent='';return;}const left=Math.max(0,max-audPlayCount);b.textContent=left>0?`재생 ${left}회 남음`:'소진';b.style.color=left===0?'var(--red)':'var(--text3)';const btn=document.getElementById('ap-play-btn');if(btn)btn.disabled=left===0;}
+function restartAudio(q){
+  stopAudio();
+  startAudioQ(q);
+  const b=document.getElementById('ap-play-btn');if(b)b.textContent='⏸';
+}
+function resumeOrPauseAudio(q){
+  if(audioPlaying){
+    stopAudio();
+    const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';
+  } else {
+    // resume: restart from beginning (YT iframe can't seek to paused position easily)
+    startAudioQ(q);
+    const b=document.getElementById('ap-play-btn');if(b)b.textContent='⏸';
+  }
+}
 function toggleAudio(q){if(audioPlaying){stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';}else{startAudioQ(q);}}
 function setAudVol(v){
   audVol=parseFloat(v);
@@ -1096,7 +1117,10 @@ function renderPQ(){
       <div class="ap-top">
         <div class="ap-icon">🎵</div>
         <div class="ap-info"><div class="ap-label">소리를 듣고 답을 입력하세요</div><div class="ap-title">${rangeLabel||''}</div></div>
-        <button class="ap-btn" id="ap-play-btn" onclick="toggleAudio(pQ[pIdx])">▶</button>
+        <div style="display:flex;gap:6px">
+          <button class="ap-btn" id="ap-restart-btn" title="처음부터" onclick="restartAudio(pQ[pIdx])">↺</button>
+          <button class="ap-btn" id="ap-play-btn" onclick="resumeOrPauseAudio(pQ[pIdx])">⏸</button>
+        </div>
       </div>
       <div class="ap-progress"><div class="ap-bar-bg"><div class="ap-bar-fill" id="ap-bar-fill"></div></div><div class="ap-time"><span id="ap-cur">0:00</span><span id="ap-total">${dur?fmtSec(dur):''}</span></div></div>
       <div class="ap-vol-row">
@@ -1104,6 +1128,9 @@ function renderPQ(){
         <input class="ap-vol-slider" type="range" id="ap-vol" min="0" max="1" step="0.05" value="${audVol}" oninput="setAudVol(this.value)">
       </div>
       <span class="ap-badge" id="ap-badge"></span>
+      <div class="ap-reveal" id="ap-reveal">
+        <iframe id="ap-reveal-frame" src="" allowfullscreen allow="autoplay;encrypted-media"></iframe>
+      </div>
     </div>`;
     setTimeout(()=>updateAudBadge(q),50);
   }
@@ -1122,9 +1149,10 @@ function renderPQ(){
   inp.addEventListener('keydown',e=>{
     if(e.key==='Enter'){subAns();return;}
     if(e.key===' '&&!e.target.value&&pQ[pIdx]&&pQ[pIdx].type==='audio'){
-      e.preventDefault();toggleAudio(pQ[pIdx]);return;
+      e.preventDefault();resumeOrPauseAudio(pQ[pIdx]);return;
     }
     if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+      if(e.target.value)return;  // 텍스트 있으면 커서 이동 허용
       const q=pQ[pIdx];if(!q)return;
       const step=5;
       if(q.type==='audio'){
@@ -1143,6 +1171,10 @@ function renderPQ(){
   });
   inp.focus();
   if(tl>0)startTimer(tl);
+  // 오디오 문제면 자동 재생
+  if(pQ[pIdx]&&pQ[pIdx].type==='audio'){
+    setTimeout(()=>startAudioQ(pQ[pIdx]),300);
+  }
 }
 
 const norm=s=>s.trim().toLowerCase().replace(/\s+/g,'');
@@ -1162,17 +1194,38 @@ function subAns(){
   const curQuiz=pQ[pIdx]&&pQ[pIdx]._quiz;
   const hideAns=!!(curQuiz&&curQuiz.hideAnswer);
   if(hideAns){
-    fb.innerHTML=ok?'✅ 정답!':'❌ 오답.';
+    if(ok){
+      fb.innerHTML='✅ 정답!';
+    } else {
+      const firstAns=esc(accepted[0]||'');
+      fb.innerHTML=`❌ 오답. 정답: <span style="font-weight:700;color:var(--green)">${firstAns}</span>`;
+    }
   }else{
     const tagHtml=accepted.map(a=>`<span class="ans-tag">${esc(a)}</span>`).join('');
     fb.innerHTML=ok?`✅ 정답!<div class="ans-tags">${tagHtml}</div>`:`❌ 오답. 정답:<div class="ans-tags">${tagHtml}</div>`;
   }
   document.getElementById('nbtn').style.display='block';
+  // 소리 문제면 정답/오답 후 유튜브 영상 공개
+  if(q.type==='audio'&&q.ytId){
+    const rev=document.getElementById('ap-reveal');
+    const revF=document.getElementById('ap-reveal-frame');
+    if(rev&&revF){
+      const s=q.startSec||0;
+      revF.src='https://www.youtube.com/embed/'+q.ytId+'?autoplay=0&start='+s+'&rel=0';
+      rev.style.display='block';
+    }
+  }
   inp.blur();
   setTimeout(()=>{document.addEventListener('keydown',enterNext);},400);
 }
 function enterNext(e){if(e.key==='Enter'){e.preventDefault();document.removeEventListener('keydown',enterNext);nextP();}}
-function nextP(){clearST();clearTimer();stopAudio();document.removeEventListener('keydown',enterNext);pIdx++;renderPQ();}
+function nextP(){
+  clearST();clearTimer();stopAudio();
+  // reveal 초기화
+  const rev=document.getElementById('ap-reveal');const revF=document.getElementById('ap-reveal-frame');
+  if(rev){rev.style.display='none';}if(revF){revF.src='';}
+  document.removeEventListener('keydown',enterNext);pIdx++;renderPQ();
+}
 
 function renderResultDetail(){
   const el=document.getElementById('res-detail-list');
