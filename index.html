@@ -908,8 +908,8 @@ function loadDetail(quiz,isMine){
   document.querySelectorAll('#time-btns .cnt-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
 
   document.getElementById('det-admin-btns').style.display=isAdmin?'block':'none';
-  loadDetComments(quiz.id);
   showScreen('detail');
+  setTimeout(()=>loadDetComments(quiz.id),0);
 }
 function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 function selTime(btn,t){selTimeLimit=t;document.querySelectorAll('#time-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
