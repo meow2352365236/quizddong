@@ -361,6 +361,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <button class="btn btn-sm btn-full" style="margin-bottom:6px" onclick="adminViewComments()">💬 댓글 전체 보기</button>
       <button class="btn btn-red btn-full btn-sm" onclick="adminDeleteQuiz()">🗑 삭제 (관리자)</button>
     </div>
+    <div id="det-cmt-wrap" style="margin-top:24px"></div>
   </div>
 </div>
 
@@ -1607,7 +1608,13 @@ function saveQ(){
   const answerStr=modalAnswers.join(', ');
   const timeLimit=0; // 제한시간은 플레이 시 유저가 선택
   let q={type:qType,question,answer:answerStr,timeLimit};
-  if(qType==='image'){if(!qImgData){toast('❗ 사진을 업로드해주세요');return;}q.image=qImgData;}
+  if(qType==='image'){
+    if(!qImgData){
+      if(typeof editQIdx==='number'&&editQIdx>=0&&mkQs[editQIdx]&&mkQs[editQIdx].image){
+        q.image=mkQs[editQIdx].image; // 기존 이미지 유지
+      }else{toast('❗ 사진을 업로드해주세요');return;}
+    }else{q.image=qImgData;}
+  }
   else if(qType==='audio'){const id=extractYT(document.getElementById('q-yt-aud').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-aud').value);q.endSec=ptime(document.getElementById('q-en-aud').value);q.maxPlays=parseInt(document.getElementById('q-aud-maxplays').value)||0;}
   else{const id=extractYT(document.getElementById('q-yt-vid').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-vid').value);q.endSec=ptime(document.getElementById('q-en-vid').value);q.maxPlays=parseInt(document.getElementById('q-vid-maxplays').value)||0;}
   if(typeof editQIdx==='number'&&editQIdx>=0){mkQs[editQIdx]=q;editQIdx=-1;closeModal();renderMkList();toast('✅ 문제가 수정됐어요!');}
