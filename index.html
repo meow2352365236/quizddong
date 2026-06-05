@@ -307,6 +307,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
   <button class="nbtn pri" onclick="goMaker()">+ 퀴즈 만들기</button>
 </nav>
 <div class="notice-bar"><div class="notice-dot"></div><div id="notice-txt">퀴즈캣에 오신 것을 환영합니다! 🎉</div></div>
+<div id="update-log-bar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 16px;font-size:12px;color:var(--text2);white-space:pre-wrap;line-height:1.6"><span style="font-weight:700;color:var(--accent);margin-right:8px">📋 업데이트</span><span id="update-log-bar-txt"></span></div>
 <canvas id="confetti-canvas"></canvas>
 
 <!-- HOME -->
@@ -344,10 +345,10 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
         <div class="cfg-lbl" style="margin-top:14px">문제당 제한 시간</div>
         <div class="cnt-btns" id="time-btns">
           <button class="cnt-btn on" onclick="selTime(this,0)">없음</button>
+          <button class="cnt-btn" onclick="selTime(this,5)">5초</button>
           <button class="cnt-btn" onclick="selTime(this,15)">15초</button>
           <button class="cnt-btn" onclick="selTime(this,30)">30초</button>
           <button class="cnt-btn" onclick="selTime(this,60)">60초</button>
-          <button class="cnt-btn" onclick="selTime(this,90)">90초</button>
         </div>
         <button class="btn btn-acc btn-full btn-lg" onclick="startPlay()">▶ 퀴즈 시작하기</button>
         <button class="btn btn-full" style="margin-top:6px" onclick="shareQuiz()">🔗 링크 공유</button>
@@ -737,6 +738,8 @@ async function saveUpdateLog(){
     await sbUpsert('notices',{id:2,content});
   });
   document.getElementById('update-log-display').textContent=content;
+  const _bar=document.getElementById('update-log-bar');const _bt=document.getElementById('update-log-bar-txt');
+  if(_bar&&_bt){_bt.textContent=content;_bar.style.display='block';}
   toast('업데이트 로그 저장됐어요');
 }
 async function loadUpdateLog(){
@@ -744,6 +747,9 @@ async function loadUpdateLog(){
     const r=await sbSelect('notices','select=content&id=eq.2');
     if(r[0]){
       const el=document.getElementById('update-log-display');if(el)el.textContent=r[0].content;
+      const bar=document.getElementById('update-log-bar');
+      const barTxt=document.getElementById('update-log-bar-txt');
+      if(bar&&barTxt&&r[0].content){barTxt.textContent=r[0].content;bar.style.display='block';}
       const vi=document.getElementById('admin-version-inp');const li=document.getElementById('admin-updatelog-inp');
       if(r[0].content){
         const m=r[0].content.match(/^\[([^\]]+)\]\n([\s\S]*)$/);
@@ -887,8 +893,9 @@ function loadDetail(quiz,isMine){
   const p=(quiz.plays||0)>=1000?((quiz.plays||0)/1000).toFixed(1)+'K':(quiz.plays||0);
   document.getElementById('d-meta').textContent=`▶ ${p}회 풀이 · ${max}문제${quiz.ownerNickname?' · by '+quiz.ownerNickname:''}`;
   document.getElementById('d-desc').textContent=quiz.desc||'';
-  const opts=[];if(max>=3)opts.push(3);if(max>=5)opts.push(5);if(max>=10)opts.push(10);if(!opts.includes(max))opts.push(max);
-  document.getElementById('cntbtns').innerHTML=opts.map(n=>`<button class="cnt-btn${n===selQCount?' on':''}" onclick="selCnt(this,${n})">${n}문제</button>`).join('')+`<button class="cnt-btn${max===selQCount?' on':''}" onclick="selCnt(this,${max})">전체 (${max})</button>`;
+  const fixedOpts=[5,10,20,30,50,100];
+  const validOpts=fixedOpts.filter(n=>n<max);
+  document.getElementById('cntbtns').innerHTML=validOpts.map(n=>`<button class="cnt-btn${n===selQCount?' on':''}" onclick="selCnt(this,${n})">${n}문제</button>`).join('')+`<button class="cnt-btn${max===selQCount?' on':''}" onclick="selCnt(this,${max})">전체 (${max})</button>`;
   // reset time limit
   selTimeLimit=0;
   document.querySelectorAll('#time-btns .cnt-btn').forEach((b,i)=>b.classList.toggle('on',i===0));
