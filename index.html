@@ -1276,7 +1276,7 @@ function renderResultDetail(){
 // ═══ RESULT ═══
 async function renderRes(){
   const total=pQ.length,el=Math.round((Date.now()-pStart)/1000),m=Math.floor(el/60),s=el%60,rate=Math.round(pScore/total*100);
-  const cl=await sbSelect('comments',`quiz_id=eq.${curQid}`).then(r=>r[0]?r[0].comments:[]).catch(()=>[]);
+  const cl=rowsToCmts(await sbSelect('comments','select=*&quiz_id=eq.'+curQid).catch(()=>[]));  
   const todayKey='cmt_'+curQid+'_'+new Date().toDateString();
   const cmtLeft=3-parseInt(localStorage.getItem(todayKey)||'0');
   document.getElementById('pcontent').innerHTML=`
@@ -1325,7 +1325,7 @@ function getCmtLeft(qid){return 3-parseInt(localStorage.getItem(getCmtKey(qid))|
 function useCmt(qid){const k=getCmtKey(qid);localStorage.setItem(k,String(parseInt(localStorage.getItem(k)||'0')+1));}
 async function loadDetComments(qid){
   const wrap=document.getElementById('det-cmt-wrap');if(!wrap)return;
-  let cl=[];try{cl=await sbSelect('comments','select=*&quiz_id=eq.'+qid);}catch(e){}
+  let cl=[];try{cl=rowsToCmts(await sbSelect('comments','select=*&quiz_id=eq.'+qid));}catch(e){}
   const cmtLeft=getCmtLeft(qid);
   wrap.innerHTML=`<div class="cmt-sec">
     <h3>💬 댓글 <span style="color:var(--text3);font-weight:400;font-size:12px">${cl.length}개</span></h3>
@@ -1356,6 +1356,16 @@ async function postDetC(qid){
   await sbUpsert('comments',{id,quiz_id:qid,nickname:nick,content:txt,created_at:new Date().toISOString(),likes:0,replies:[]});
   useCmt(qid);t.value='';
   loadDetComments(qid);
+}
+function rowsToCmts(rows){
+  return (rows||[]).map(r=>({
+    id:r.id,
+    nick:r.nickname||'?',
+    text:r.content||'',
+    time:r.created_at?new Date(r.created_at).toLocaleString('ko'):'-',
+    likes:r.likes||0,
+    replies:(r.replies||[])
+  }));
 }
 function renderComments(cl,qid){
   if(!cl.length)return'<div class="no-cmt">아직 댓글이 없어요!</div>';
