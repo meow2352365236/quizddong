@@ -25,7 +25,10 @@ export default async function handler(req) {
         const q = data[0];
         title = `${q.title || '퀴즈'} - 퀴즈캣`;
         description = q.description || `${q.category || '퀴즈'} · 퀴즈캣에서 풀어보세요!`;
-        if (q.thumb && q.thumb.startsWith('http')) image = q.thumb;
+        // base64나 너무 긴 URL은 Discord가 못 불러옴 → 폴백
+        if (q.thumb && q.thumb.startsWith('http') && !q.thumb.startsWith('data:') && q.thumb.length < 500) {
+          image = q.thumb;
+        }
       }
     } catch (_) {}
   }
