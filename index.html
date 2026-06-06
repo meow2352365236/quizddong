@@ -1325,7 +1325,7 @@ function getCmtLeft(qid){return 3-parseInt(localStorage.getItem(getCmtKey(qid))|
 function useCmt(qid){const k=getCmtKey(qid);localStorage.setItem(k,String(parseInt(localStorage.getItem(k)||'0')+1));}
 async function loadDetComments(qid){
   const wrap=document.getElementById('det-cmt-wrap');if(!wrap)return;
-  let cl=[];try{cl=await sbSelect('comments',`select=*&quiz_id=eq.${qid}&order=created_at.asc`);}catch(e){}
+  let cl=[];try{cl=await sbSelect('comments','select=*&quiz_id=eq.'+qid);}catch(e){}
   const cmtLeft=getCmtLeft(qid);
   wrap.innerHTML=`<div class="cmt-sec">
     <h3>💬 댓글 <span style="color:var(--text3);font-weight:400;font-size:12px">${cl.length}개</span></h3>
