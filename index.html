@@ -707,7 +707,7 @@ async function renderAdminQuizList(){
   document.getElementById('admin-quiz-list').innerHTML=rows.length?rows.map(q=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:220px">${esc(q.title)}</span><button class="btn btn-sm btn-red" onclick="adminDelById('${q.id}')">삭제</button></div>`).join(''):'<p style="font-size:13px;color:var(--text3)">퀴즈 없음</p>';
 }
 function shareQuiz(){
-  const url=location.origin+'/quiz/'+curQid;
+  const url=location.origin+'/api/og?id='+curQid;
   if(navigator.share){navigator.share({title:document.title,url:url}).catch(()=>{});}
   else{navigator.clipboard.writeText(url).then(()=>toast('🔗 링크가 복사됐어요!')).catch(()=>{const el=document.createElement('input');el.value=url;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);toast('🔗 링크가 복사됐어요!');});}
 }
@@ -1068,7 +1068,7 @@ function startAudioQ(q){
   audioPlaying=true;audioStart=Date.now();audioDur=e&&e>s?e-s:null;
   // set volume via iframe postMessage - try multiple times as YT takes time to init
   function applyAudVol(){
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]}),'https://www.youtube-nocookie.com');}catch(e_){}
+    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]}),'*');}catch(e_){}
   }
   [300,800,1500,2500].forEach(t=>setTimeout(applyAudVol,t));
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
@@ -1096,7 +1096,7 @@ function resumeOrPauseAudio(q){
     if(audioTimer){clearTimeout(audioTimer);audioTimer=null;}
     if(audioTick){clearInterval(audioTick);audioTick=null;}
     audioPlaying=false;
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:''}),'https://www.youtube-nocookie.com');}catch(e){}
+    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:''}),'*');}catch(e){}
     const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';
   } else if(audioPaused&&f&&f.src&&f.src!=='about:blank'){
     // 이어서: YT playVideo, 타이머/틱 재시작
@@ -1104,7 +1104,7 @@ function resumeOrPauseAudio(q){
     audioStart=Date.now()-alreadyElapsed*1000;
     audioPaused=false;
     audioPlaying=true;
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'playVideo',args:''}),'https://www.youtube-nocookie.com');}catch(e){}
+    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'playVideo',args:''}),'*');}catch(e){}
     if(audioDur){
       const remaining=(audioDur-alreadyElapsed)*1000;
       if(remaining>0){audioTimer=setTimeout(()=>{stopAudio();const b2=document.getElementById('ap-play-btn');if(b2)b2.textContent='▶';const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width='100%';},remaining);}
