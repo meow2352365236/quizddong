@@ -1,7 +1,7 @@
 export const config = { runtime: 'edge' };
 
 const SUPABASE_URL = 'https://bskhnhjtsaqnavuesbfc.supabase.co';
-const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJza2huaGp0c2FxbmF2dWVzYmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MjUwMDksImV4cCI6MjA5NjEwMTAwOX0.-7GYNqBItBmwALCMmjrcIkHtzHznmG6ZQ2J29w7jmNc';
 
 export default async function handler(req) {
   const { searchParams } = new URL(req.url);
