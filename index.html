@@ -1607,14 +1607,14 @@ function openEditQ(i){
     document.getElementById('qimg-f').value='';
   }else if(qType==='audio'){
     const au=document.getElementById('q-yt-aud');if(au)au.value=q.ytId?'https://youtu.be/'+q.ytId:'';
-    const as_=document.getElementById('q-st-aud');if(as_)as_.value=q.startSec||'';
-    const ae=document.getElementById('q-en-aud');if(ae)ae.value=q.endSec||'';
+    const as_=document.getElementById('q-st-aud');if(as_)as_.value=q.startSec>0?fmtSec(q.startSec):'';
+    const ae=document.getElementById('q-en-aud');if(ae)ae.value=q.endSec>0?fmtSec(q.endSec):'';
     const am=document.getElementById('q-aud-maxplays');if(am)am.value=q.maxPlays||0;
     if(q.ytId){const w=document.getElementById('q-ytprev-aud');const f=document.getElementById('q-ytif-aud');if(w&&f){w.style.display='block';f.src='https://www.youtube.com/embed/'+q.ytId+'?rel=0&modestbranding=1&enablejsapi=1';}}
   }else if(qType==='video'){
     const vu=document.getElementById('q-yt-vid');if(vu)vu.value=q.ytId?'https://youtu.be/'+q.ytId:'';
-    const vs=document.getElementById('q-st-vid');if(vs)vs.value=q.startSec||'';
-    const ve=document.getElementById('q-en-vid');if(ve)ve.value=q.endSec||'';
+    const vs=document.getElementById('q-st-vid');if(vs)vs.value=q.startSec>0?fmtSec(q.startSec):'';
+    const ve=document.getElementById('q-en-vid');if(ve)ve.value=q.endSec>0?fmtSec(q.endSec):'';
     const vm=document.getElementById('q-vid-maxplays');if(vm)vm.value=q.maxPlays||0;
     if(q.ytId){const w=document.getElementById('q-ytprev-vid');const f=document.getElementById('q-ytif-vid');if(w&&f){w.style.display='block';f.src='https://www.youtube.com/embed/'+q.ytId+'?rel=0&modestbranding=1&enablejsapi=1';}}
   }
