@@ -1064,7 +1064,7 @@ function startAudioQ(q){
   const s=q.startSec||0,e=q.endSec||null;
   // use nocookie + autoplay, iframe stays fully hidden
   const f=document.getElementById('yt-audio-frame');
-  f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1`;
+  f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1&enablejsapi=1`;
   audioPlaying=true;audioStart=Date.now();audioDur=e&&e>s?e-s:null;
   // volume controlled via system/YT default (postMessage requires enablejsapi)
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
@@ -1099,7 +1099,7 @@ function resumeOrPauseAudio(q){
     const resumeSec=Math.floor((q.startSec||0)+audioPausedElapsed);
     const endSec=q.endSec||null;
     const endParam=endSec?`&end=${endSec}`:'';
-    if(f)f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${resumeSec}${endParam}&rel=0&modestbranding=1`;
+    if(f)f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${resumeSec}${endParam}&rel=0&modestbranding=1&enablejsapi=1`;
     audioStart=Date.now()-audioPausedElapsed*1000;
     audioPaused=false;
     audioPlaying=true;
@@ -1121,10 +1121,12 @@ function resumeOrPauseAudio(q){
 function toggleAudio(q){if(audioPlaying){stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';}else{startAudioQ(q);}}
 function setAudVol(v){
   audVol=parseFloat(v);
-  // send volume to hidden iframe via YT postMessage API
   const f=document.getElementById('yt-audio-frame');
   if(f&&f.src&&f.src!=='about:blank'){
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]}),'*');}catch(e){}
+    const vol=Math.round(audVol*100);
+    const msg=JSON.stringify({event:'command',func:'setVolume',args:[vol]});
+    // retry 여러 번 - YT 초기화 타이밍 대기
+    [0,500,1000,2000].forEach(t=>setTimeout(()=>{try{f.contentWindow.postMessage(msg,'*');}catch(e){}},t));
   }
   updateAudVolIcon();
 }
