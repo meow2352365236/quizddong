@@ -1123,10 +1123,9 @@ function setAudVol(v){
   audVol=parseFloat(v);
   const f=document.getElementById('yt-audio-frame');
   if(f&&f.src&&f.src!=='about:blank'){
-    const vol=Math.round(audVol*100);
-    const msg=JSON.stringify({event:'command',func:'setVolume',args:[vol]});
-    // retry 여러 번 - YT 초기화 타이밍 대기
-    [0,500,1000,2000].forEach(t=>setTimeout(()=>{try{f.contentWindow.postMessage(msg,'*');}catch(e){}},t));
+    const msg=JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]});
+    try{f.contentWindow.postMessage(msg,'*');}catch(e){}
+    setTimeout(()=>{try{f.contentWindow.postMessage(msg,'*');}catch(e){}},300);
   }
   updateAudVolIcon();
 }
@@ -1202,7 +1201,7 @@ function renderPQ(){
       <div class="ap-progress"><div class="ap-bar-bg"><div class="ap-bar-fill" id="ap-bar-fill"></div></div><div class="ap-time"><span id="ap-cur">0:00</span><span id="ap-total">${dur?fmtSec(dur):''}</span></div></div>
       <div class="ap-vol-row">
         <span class="ap-vol-icon" id="ap-vol-icon">🔊</span>
-        <input class="ap-vol-slider" type="range" id="ap-vol" min="0" max="1" step="0.05" value="${audVol}" oninput="setAudVol(this.value)">
+        <input class="ap-vol-slider" type="range" id="ap-vol" min="0" max="1" step="0.05" value="${audVol}" oninput="updateAudVolIcon();audVol=parseFloat(this.value)" onchange="setAudVol(this.value)">
       </div>
       <span class="ap-badge" id="ap-badge"></span>
       <div class="ap-reveal" id="ap-reveal">
