@@ -5,7 +5,7 @@
 
 const SUPABASE_URL = 'https://bskhnhjtsaqnavuesbfc.supabase.co';
 // Public anon key (read-only) — replace with your actual anon key
-const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJza2huaGp0c2FxbmF2dWVzYmZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MjUwMDksImV4cCI6MjA5NjEwMTAwOX0.-7GYNqBItBmwALCMmjrcIkHtzHznmG6ZQ2J29w7jmNc';
 
 export const config = { runtime: 'edge' };
 
