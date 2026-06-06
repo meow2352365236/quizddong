@@ -863,7 +863,7 @@ async function postNoticeItem(){
   const base=SUPABASE_URL.replace(/\/+$/,'');
   const r=await fetch(base+'/rest/v1/notices',{
     method:'POST',
-    headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+    headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
     body:JSON.stringify({title,body,content:title,created_at:new Date().toISOString()})
   });
   if(!r.ok){const t=await r.text();toast('등록 실패: '+t);return;}
