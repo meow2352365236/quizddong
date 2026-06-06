@@ -1325,7 +1325,7 @@ function getCmtLeft(qid){return 3-parseInt(localStorage.getItem(getCmtKey(qid))|
 function useCmt(qid){const k=getCmtKey(qid);localStorage.setItem(k,String(parseInt(localStorage.getItem(k)||'0')+1));}
 async function loadDetComments(qid){
   const wrap=document.getElementById('det-cmt-wrap');if(!wrap)return;
-  let cl=[];try{cl=rowsToCmts(await sbSelect('comments','select=*&quiz_id=eq.'+qid));}catch(e){}
+  let cl=[];try{cl=await getComments(qid);}catch(e){}
   const cmtLeft=getCmtLeft(qid);
   wrap.innerHTML=`<div class="cmt-sec">
     <h3>💬 댓글 <span style="color:var(--text3);font-weight:400;font-size:12px">${cl.length}개</span></h3>
@@ -1348,12 +1348,12 @@ async function loadDetComments(qid){
 async function postDetC(qid){
   const n=document.getElementById('det-cn'),t=document.getElementById('det-ct');
   if(!n||!t)return;
-  const nick=n.value.trim(),txt=t.value.trim();
-  if(!nick){toast('닉네임을 입력해주세요');return;}
-  if(!txt){toast('댓글을 입력해주세요');return;}
+  const nick=n.value.trim()||'익명',txt=t.value.trim();
+  if(!txt){toast('댓글 내용을 입력해주세요');return;}
   if(getCmtLeft(qid)<=0){toast('오늘 댓글 한도 도달');return;}
-  const id='c_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-  await sbUpsert('comments',{id,quiz_id:qid,nickname:nick,content:txt,created_at:new Date().toISOString(),likes:0,replies:[]});
+  const cl=await getComments(qid);
+  cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR'),likes:0,replies:[]});
+  await putComments(qid,cl);
   useCmt(qid);t.value='';
   loadDetComments(qid);
 }
