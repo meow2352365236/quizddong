@@ -1,17 +1,5 @@
 {
-  "functions": {
-    "api/og.js": {
-      "runtime": "edge"
-    }
-  },
-  "routes": [
-    {
-      "src": "/quiz/([^/]+)",
-      "dest": "/api/og?id=$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
