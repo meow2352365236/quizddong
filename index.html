@@ -1072,8 +1072,8 @@ function startAudioQ(q){
   audioTick=setInterval(()=>{
     const el=(Date.now()-audioStart)/1000;
     const f2=document.getElementById('ap-bar-fill');
-    if(audioDur){if(f2)f2.style.width=Math.min(100,el/audioDur*100)+'%';}
-    else{if(f2)f2.style.width='0%';}
+    const effDur1=audioDur||600;
+    if(f2)f2.style.width=Math.min(100,el/effDur1*100)+'%';
     const c=document.getElementById('ap-cur');if(c)c.textContent=fmtSec(Math.round(el));
   },300);
 }
@@ -1110,7 +1110,8 @@ function resumeOrPauseAudio(q){
     audioTick=setInterval(()=>{
       const el=(Date.now()-audioStart)/1000;
       const f2=document.getElementById('ap-bar-fill');
-      if(audioDur){if(f2)f2.style.width=Math.min(100,el/audioDur*100)+'%';}
+      const effDur=audioDur||600;
+      if(f2)f2.style.width=Math.min(100,el/effDur*100)+'%';
       const c=document.getElementById('ap-cur');if(c)c.textContent=fmtSec(Math.round(el));
     },300);
     const b=document.getElementById('ap-play-btn');if(b)b.textContent='⏸';
