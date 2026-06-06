@@ -1188,17 +1188,28 @@ function renderPQ(){
     // audio — hidden YT iframe
     const audS=q.startSec||0,audE=q.endSec||null;
     const dur=audE&&audE>audS?audE-audS:null;
-    const rangeLabel=audE?fmtSec(audS)+' ~ '+fmtSec(audE):(audS>0?fmtSec(audS)+' ~':'');
+    const rangeLabel=audE
+      ?fmtSec(audS)+' ~ '+fmtSec(audE)
+      :(audS>0?fmtSec(audS)+' ~':'소리를 듣고 정답을 맞춰보세요');
     media=`<div class="audio-player">
       <div class="ap-top">
         <div class="ap-icon">🎵</div>
-        <div class="ap-info"><div class="ap-label">소리를 듣고 답을 입력하세요</div><div class="ap-title">${rangeLabel||''}</div></div>
+        <div class="ap-info">
+          <div class="ap-label" style="${rangeLabel&&rangeLabel!=='소리를 듣고 정답을 맞춰보세요'?'display:none':''}">소리를 듣고 답을 입력하세요</div>
+          <div class="ap-title" style="font-size:15px;font-weight:700;margin-top:2px">${rangeLabel||''}</div>
+        </div>
         <div style="display:flex;gap:6px">
           <button class="ap-btn" id="ap-restart-btn" title="처음부터" onclick="restartAudio(pQ[pIdx])">↺</button>
           <button class="ap-btn" id="ap-play-btn" onclick="resumeOrPauseAudio(pQ[pIdx])">⏸</button>
         </div>
       </div>
-      <div class="ap-progress"><div class="ap-bar-bg"><div class="ap-bar-fill" id="ap-bar-fill"></div></div><div class="ap-time"><span id="ap-cur">0:00</span><span id="ap-total">${dur?fmtSec(dur):''}</span></div></div>
+      <div class="ap-progress" style="margin-top:10px">
+        <div class="ap-bar-bg"><div class="ap-bar-fill" id="ap-bar-fill"></div></div>
+        <div class="ap-time" style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-top:4px">
+          <span id="ap-cur">0:00</span>
+          <span id="ap-total">${dur?fmtSec(dur):''}</span>
+        </div>
+      </div>
       <div class="ap-vol-row">
         <span class="ap-vol-icon" id="ap-vol-icon">🔊</span>
         <input class="ap-vol-slider" type="range" id="ap-vol" min="0" max="1" step="0.05" value="${audVol}" oninput="updateAudVolIcon();audVol=parseFloat(this.value)" onchange="setAudVol(this.value)">
