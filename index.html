@@ -1064,13 +1064,9 @@ function startAudioQ(q){
   const s=q.startSec||0,e=q.endSec||null;
   // use nocookie + autoplay, iframe stays fully hidden
   const f=document.getElementById('yt-audio-frame');
-  f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+  f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1`;
   audioPlaying=true;audioStart=Date.now();audioDur=e&&e>s?e-s:null;
-  // set volume via iframe postMessage - try multiple times as YT takes time to init
-  function applyAudVol(){
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[Math.round(audVol*100)]}),'*');}catch(e_){}
-  }
-  [300,800,1500,2500].forEach(t=>setTimeout(applyAudVol,t));
+  // volume controlled via system/YT default (postMessage requires enablejsapi)
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
   if(audioDur){audioTimer=setTimeout(()=>{stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width='100%';},audioDur*1000);}
   audioTick=setInterval(()=>{
@@ -1090,24 +1086,26 @@ function restartAudio(q){
 function resumeOrPauseAudio(q){
   const f=document.getElementById('yt-audio-frame');
   if(audioPlaying){
-    // 일시정지: elapsed 저장 후 YT pauseVideo
+    // 일시정지: elapsed 저장 후 src 비우기
     audioPausedElapsed=(Date.now()-audioStart)/1000;
     audioPaused=true;
     if(audioTimer){clearTimeout(audioTimer);audioTimer=null;}
     if(audioTick){clearInterval(audioTick);audioTick=null;}
     audioPlaying=false;
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'pauseVideo',args:''}),'*');}catch(e){}
+    if(f)f.src='about:blank';
     const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';
-  } else if(audioPaused&&f&&f.src&&f.src!=='about:blank'){
-    // 이어서: YT playVideo, 타이머/틱 재시작
-    const alreadyElapsed=audioPausedElapsed;
-    audioStart=Date.now()-alreadyElapsed*1000;
+  } else if(audioPaused){
+    // 이어서: startSec + 이미 지난 시간으로 재개
+    const resumeSec=Math.floor((q.startSec||0)+audioPausedElapsed);
+    const endSec=q.endSec||null;
+    const endParam=endSec?`&end=${endSec}`:'';
+    if(f)f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${resumeSec}${endParam}&rel=0&modestbranding=1`;
+    audioStart=Date.now()-audioPausedElapsed*1000;
     audioPaused=false;
     audioPlaying=true;
-    try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'playVideo',args:''}),'*');}catch(e){}
     if(audioDur){
-      const remaining=(audioDur-alreadyElapsed)*1000;
-      if(remaining>0){audioTimer=setTimeout(()=>{stopAudio();const b2=document.getElementById('ap-play-btn');if(b2)b2.textContent='▶';const f2=document.getElementById('ap-bar-fill');if(f2)f2.style.width='100%';},remaining);}
+      const remaining=(audioDur-audioPausedElapsed)*1000;
+      if(remaining>0){audioTimer=setTimeout(()=>{stopAudio();const b2=document.getElementById('ap-play-btn');if(b2)b2.textContent='▶';},remaining);}
     }
     audioTick=setInterval(()=>{
       const el=(Date.now()-audioStart)/1000;
@@ -1117,7 +1115,6 @@ function resumeOrPauseAudio(q){
     },300);
     const b=document.getElementById('ap-play-btn');if(b)b.textContent='⏸';
   } else {
-    // 처음 재생
     startAudioQ(q);
   }
 }
