@@ -908,7 +908,7 @@ async function loadNoticeList(){
           <span>${n.created_at?new Date(n.created_at).toLocaleDateString('ko'):''}</span>
           ${isAdmin?`<button class="btn btn-sm" style="font-size:11px;padding:2px 8px" onclick="editNoticeItem(${n.id},'${esc(n.title||'')}',(document.getElementById('nb-${i}'))&&document.getElementById('nb-${i}').innerHTML)">수정</button>`:''}
         </div>
-        <div class="notice-item-body" id="nb-${i}">${n.body||n.content||''}</div>
+        <div class="notice-item-body" id="nb-${i}">${n.body?n.body:(n.content?esc(n.content):'')}</div>
       </div>`).join('');
   }catch(e){listEl.innerHTML='<div style="color:var(--red);text-align:center;padding:24px">불러오기 실패</div>';}
 }
@@ -939,10 +939,11 @@ async function postNoticeItem(){
     // 수정
     const r=await fetch(base+'/rest/v1/notices?id=eq.'+editingNoticeId,{
       method:'PATCH',
-      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY},
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
       body:JSON.stringify({title,body,content:title})
     });
-    if(!r.ok){const t=await r.text();toast('수정 실패: '+t);return;}
+    console.log('PATCH status:',r.status,'id:',editingNoticeId);
+    if(!r.ok){const t=await r.text();console.error(t);toast('수정 실패('+r.status+'): '+t);return;}
     toast('공지가 수정됐어요!');
   } else {
     // 신규 등록
