@@ -717,6 +717,7 @@ window.addEventListener('message',function(e){
     const d=JSON.parse(e.data);
     if(d.event==='infoDelivery'&&d.info&&d.info.duration){
       const dur=d.info.duration;
+      // 제작 미리보기: 10분 초과 체크
       ['sound','video'].forEach(t=>{
         const f=document.getElementById('q-ytif-'+t);
         if(f&&e.source===f.contentWindow){
@@ -727,6 +728,26 @@ window.addEventListener('message',function(e){
           }
         }
       });
+      // 플레이 오디오 frame: audioDur 설정
+      const af=document.getElementById('yt-audio-frame');
+      if(af&&e.source===af.contentWindow&&!audioDur){
+        const q=pQ[pIdx];
+        const s=q&&q.startSec||0;
+        const end=q&&q.endSec||null;
+        // endSec 없으면 영상 전체 길이 사용
+        if(!end&&dur>0){
+          audioDur=dur-s;
+          const apTotal=document.getElementById('ap-total');
+          if(apTotal)apTotal.textContent=fmtSec(Math.round(dur-s));
+          // 타이머 재설정
+          if(audioTimer){clearTimeout(audioTimer);}
+          if(audioPlaying&&audioDur>0){
+            const elapsed=(Date.now()-audioStart)/1000;
+            const remaining=(audioDur-elapsed)*1000;
+            if(remaining>0){audioTimer=setTimeout(()=>{stopAudio();const b=document.getElementById('ap-play-btn');if(b)b.textContent='▶';},remaining);}
+          }
+        }
+      }
     }
   }catch(e_){}
 });
@@ -1071,6 +1092,7 @@ function startAudioQ(q){
   // use nocookie + autoplay, iframe stays fully hidden
   const f=document.getElementById('yt-audio-frame');
   f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1&enablejsapi=1`;
+  f.onload=()=>{setTimeout(()=>{try{f.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*');}catch(ex){}},800);};
   audioPlaying=true;audioStart=Date.now();audioDur=e&&e>s?e-s:null;
   // volume controlled via system/YT default (postMessage requires enablejsapi)
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
@@ -1299,6 +1321,8 @@ function subAns(){
     fb.innerHTML=ok?`✅ 정답!<div class="ans-tags">${tagHtml}</div>`:`❌ 오답. 정답:<div class="ans-tags">${tagHtml}</div>`;
   }
   document.getElementById('nbtn').style.display='block';
+  // 피드백으로 스크롤 (화면 크기에 관계없이 보이게)
+  setTimeout(()=>{const fb=document.getElementById('fb');if(fb)fb.scrollIntoView({behavior:'smooth',block:'nearest'});},50);
   // 소리 문제면 정답/오답 후 유튜브 영상 공개
   if(q.type==='audio'&&q.ytId){
     const rev=document.getElementById('ap-reveal');
