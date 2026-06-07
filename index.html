@@ -1092,7 +1092,11 @@ function startAudioQ(q){
   // use nocookie + autoplay, iframe stays fully hidden
   const f=document.getElementById('yt-audio-frame');
   f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${s}&rel=0&modestbranding=1&enablejsapi=1`;
-  f.onload=()=>{setTimeout(()=>{try{f.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*');}catch(ex){}},800);};
+  f.onload=()=>{
+    const vol=Math.round(audVol*100);
+    [300,800,1500].forEach(t=>setTimeout(()=>{try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[vol]}),'*');}catch(e){}},t));
+    setTimeout(()=>{try{f.contentWindow.postMessage(JSON.stringify({event:'listening'}),'*');}catch(ex){}},800);
+  };
   audioPlaying=true;audioStart=Date.now();audioDur=e&&e>s?e-s:null;
   // volume controlled via system/YT default (postMessage requires enablejsapi)
   const apb=document.getElementById('ap-play-btn');if(apb)apb.textContent='⏸';
@@ -1127,7 +1131,9 @@ function resumeOrPauseAudio(q){
     const resumeSec=Math.floor((q.startSec||0)+audioPausedElapsed);
     const endSec=q.endSec||null;
     const endParam=endSec?`&end=${endSec}`:'';
-    if(f)f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${resumeSec}${endParam}&rel=0&modestbranding=1&enablejsapi=1`;
+    if(f){
+      f.src=`https://www.youtube-nocookie.com/embed/${q.ytId}?autoplay=1&start=${resumeSec}${endParam}&rel=0&modestbranding=1&enablejsapi=1`;
+      f.onload=()=>{const vol=Math.round(audVol*100);[300,800,1500].forEach(t=>setTimeout(()=>{try{f.contentWindow.postMessage(JSON.stringify({event:'command',func:'setVolume',args:[vol]}),'*');}catch(e){}},t));};}
     audioStart=Date.now()-audioPausedElapsed*1000;
     audioPaused=false;
     audioPlaying=true;
