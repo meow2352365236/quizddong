@@ -1203,10 +1203,12 @@ async function startPlay(){
   try{await sbUpdate('quizzes',`id=eq.${curQid}`,{plays:(quiz.plays||0)+1});}catch(e){}
   pQ=[...quiz.questions].sort(()=>Math.random()-.5).slice(0,selQCount||quiz.questions.length).map(q=>({...q,_quiz:quiz}));
   clearST();stopAudio();clearTimer();
+  document.removeEventListener('keydown',enterNext);
   pIdx=0;pScore=0;pStart=Date.now();pDone=false;pResults=[];showScreen('play');renderPQ();
 }
 
 function renderPQ(){
+  document.removeEventListener('keydown',enterNext);
   if(pIdx>=pQ.length){renderRes();return;}
   pDone=false;vidPlayCount=0;audPlayCount=0;vidPaused={};clearTimer();
   const q=pQ[pIdx],total=pQ.length,pct=Math.round(pIdx/total*100),tl=selTimeLimit||0;
@@ -1269,7 +1271,7 @@ function renderPQ(){
     </div>`;
   const inp=document.getElementById('ainp');
   inp.addEventListener('keydown',e=>{
-    if(e.key==='Enter'){subAns();return;}
+    if(e.key==='Enter'){if(!pDone)subAns();return;}
     if(e.key===' '&&!e.target.value&&pQ[pIdx]&&pQ[pIdx].type==='audio'){
       e.preventDefault();resumeOrPauseAudio(pQ[pIdx]);return;
     }
@@ -1340,7 +1342,7 @@ function subAns(){
     }
   }
   inp.blur();
-  setTimeout(()=>{document.addEventListener('keydown',enterNext);},400);
+  setTimeout(()=>{document.removeEventListener('keydown',enterNext);document.addEventListener('keydown',enterNext);},600);
 }
 function enterNext(e){if(e.key==='Enter'){e.preventDefault();document.removeEventListener('keydown',enterNext);nextP();}}
 function nextP(){
