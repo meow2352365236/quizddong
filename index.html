@@ -700,7 +700,7 @@ function getLevelBadge(lv){
 async function getUserStat(uid){
   try{
     const r=await sbSelect('users','select=exp,coins,solved_ids&id=eq.'+uid);
-    console.log('[getUserStat] uid:',uid,'rows:',r);
+    console.log('[getUserStat] uid:',uid,'coins:',r[0]?.coins,'exp:',r[0]?.exp,'full:',JSON.stringify(r[0]));
     return r[0]||{exp:0,coins:0,solved_ids:[]};
   }catch(e){
     console.error('[getUserStat] error:',e);
