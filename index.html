@@ -1128,7 +1128,7 @@ async function goStat(uid){
   `;
 }
 function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();loadStatSection();setPageMeta('설정','/settings');}
-async function goHome(){stopAudio();clearTimer();killVideoIframe();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
+async function goHome(){stopAudio();clearTimer();killVideoIframe();quizId_override=null;showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
 window.addEventListener('popstate',()=>{const p=location.pathname;if(p==='/settings')goSettings();else goHome();});
 
 function rowToQuiz(row){return{id:row.id,title:row.title,desc:row.description,category:row.category,thumb:row.thumb,thumbEmoji:row.thumb_emoji,questions:row.questions||[],plays:row.plays||0,scores:row.scores||[],isPrivate:row.is_private,isAdult:row.is_adult,createdAt:row.created_at,ownerId:row.owner_id,ownerNickname:row.owner_nickname,quizPassword:row.quiz_password,likes:row.likes||0,hideAnswer:row.hide_answer||false,collaborators:row.collaborators||[]};}
@@ -1227,7 +1227,7 @@ function loadDetail(quiz,isMine){
 }
 function selCnt(btn,n){selQCount=n;document.querySelectorAll('.cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 function selTime(btn,t){selTimeLimit=t;document.querySelectorAll('#time-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
-function goDetail(){clearST();stopAudio();clearTimer();killVideoIframe();showScreen('detail');setPageMeta('','');}
+function goDetail(){clearST();stopAudio();clearTimer();killVideoIframe();quizId_override=null;showScreen('detail');setPageMeta('','');}
 
 // ═ EDIT QUIZ FUNCTIONS ═
 function openEditModal(title,bodyHtml,onOk){
@@ -1848,6 +1848,7 @@ document.getElementById('mk-ttl').addEventListener('input',function(){const h=do
 
 async function publishQuiz(){
   // 신규 퀴즈 제작 시 100코인 차감
+  console.log('[publishQuiz] quizId_override:',quizId_override,'isAdmin:',isAdmin);
   if(!quizId_override&&!isAdmin){
     if(!currentUser){toast('로그인이 필요해요');return;}
     const stat=await getUserStat(currentUser.id);
@@ -2041,4 +2042,4 @@ function goSettings(){
 })();
 </script>
 </body>
-</html>ㅎ
+</html>
