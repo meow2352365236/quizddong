@@ -705,6 +705,8 @@ async function addExpAndCoins(correctQids){
   const newCoins=(stat.coins||0)+coinGain;
   await sbUpdate('users','id=eq.'+currentUser.id,{exp:newExp,coins:newCoins,solved_ids:newSolved});
   currentUser.exp=newExp;currentUser.coins=newCoins;currentUser.solvedIds=newSolved;
+  currentUser.level=getLevel(newExp);
+  localStorage.setItem('qbox_user',JSON.stringify(currentUser));
   const oldLv=getLevel(stat.exp||0);
   const newLv=getLevel(newExp);
   if(newLv>oldLv)toast('🎉 레벨업! Lv.'+newLv+' 달성!');
@@ -770,7 +772,7 @@ function updateNavAuth(){
   const accs=document.getElementById('account-status');
   if(currentUser){
     const lv=currentUser.level||getLevel(currentUser.exp||0);
-    area.innerHTML=`<span class="nav-user">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
+    area.innerHTML=`<span class="nav-user" onclick="goSettings()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
     if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="goMyQuiz()">📋 내 퀴즈 보기</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
     if(accs)accs.textContent=`로그인됨: ${currentUser.nickname}`;
   } else {
@@ -934,6 +936,19 @@ const THEMES=[
 function applyTheme(id){document.body.className='theme-'+id;localStorage.setItem(TK,id);renderThemeGrid();}
 function renderThemeGrid(){const cur=localStorage.getItem(TK)||'warm';document.getElementById('theme-grid').innerHTML=THEMES.map(t=>`<div class="theme-card${t.id===cur?' on':''}" onclick="applyTheme('${t.id}')"><div class="tc-preview" style="background:${t.c[0]}"><div class="tc-circle" style="background:${t.c[2]}"></div><div class="tc-circle" style="background:${t.c[1]}"></div></div><div class="tc-name">${t.name}</div><div class="on-dot"></div></div>`).join('');}
 (()=>{document.body.className='theme-'+(localStorage.getItem(TK)||'warm');isAdmin=localStorage.getItem('qbox_admin')==='1';try{currentUser=JSON.parse(localStorage.getItem('qbox_user')||'null');}catch{currentUser=null;}initUISize();})();
+// 새로고침 시 stat 재로드
+async function refreshUserStat(){
+  if(!currentUser)return;
+  try{
+    const stat=await getUserStat(currentUser.id);
+    currentUser.exp=stat.exp||0;
+    currentUser.coins=stat.coins||0;
+    currentUser.solvedIds=stat.solved_ids||[];
+    currentUser.level=getLevel(currentUser.exp);
+    localStorage.setItem('qbox_user',JSON.stringify(currentUser));
+    updateNavAuth();
+  }catch(e){}
+}
 
 // ═══ UTILS ═══
 const CATS=['전체','게임','음악','문화','방송','상식','만화','음식','인물','스포츠','기타'];
@@ -1760,11 +1775,14 @@ document.getElementById('mk-ttl').addEventListener('input',function(){const h=do
 
 async function publishQuiz(){
   // 신규 퀴즈 제작 시 30코인 차감
-  if(!quizId_override&&currentUser&&!isAdmin){
+  if(!quizId_override&&!isAdmin){
+    if(!currentUser){toast('로그인이 필요해요');return;}
     const stat=await getUserStat(currentUser.id);
-    if((stat.coins||0)<30){toast('퀴즈 제작에는 30코인이 필요해요! (현재: '+(stat.coins||0)+'코인)');return;}
-    await sbUpdate('users','id=eq.'+currentUser.id,{coins:(stat.coins||0)-30});
-    currentUser.coins=(stat.coins||0)-30;
+    const curCoins=stat.coins||0;
+    if(curCoins<30){toast('퀴즈 제작에는 30코인이 필요해요! (현재: '+curCoins+'코인)\n문제를 풀어서 코인을 모아보세요!');return;}
+    await sbUpdate('users','id=eq.'+currentUser.id,{coins:curCoins-30});
+    currentUser.coins=curCoins-30;
+    localStorage.setItem('qbox_user',JSON.stringify(currentUser));
     updateNavAuth();
   }
   if(!currentUser){toast('로그인이 필요해요');return;}
@@ -1931,6 +1949,7 @@ function goSettings(){
   updateNavAuth();
   await loadNotice();
   await loadUpdateLog();
+  refreshUserStat();  // 새로고침 시 stat 복원
   const path=location.pathname;
   const qm=path.match(/^\/quiz\/([\w-]+)$/);
   if(qm){
