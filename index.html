@@ -511,6 +511,15 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
   </div>
 </div>
 
+<!-- STAT -->
+<div class="screen" id="screen-stat">
+  <div class="wrap" style="max-width:520px">
+    <button class="back-btn" onclick="goHome()">← 홈으로</button>
+    <div id="stat-profile" style="text-align:center;margin-bottom:24px"></div>
+    <div id="stat-main" style="display:flex;flex-direction:column;gap:14px"></div>
+  </div>
+</div>
+
 <!-- SETTINGS -->
 <div class="screen" id="screen-settings">
   <div class="settings-wrap">
@@ -772,7 +781,7 @@ function updateNavAuth(){
   const accs=document.getElementById('account-status');
   if(currentUser){
     const lv=currentUser.level||getLevel(currentUser.exp||0);
-    area.innerHTML=`<span class="nav-user" onclick="goSettings()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
+    area.innerHTML=`<span class="nav-user" onclick="goStat()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
     if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="goMyQuiz()">📋 내 퀴즈 보기</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
     if(accs)accs.textContent=`로그인됨: ${currentUser.nickname}`;
   } else {
@@ -1055,6 +1064,60 @@ async function loadStatSection(){
     <div class="sbox"><div class="sv">${stat.coins||0}💰</div><div class="sk">보유 코인</div></div>
     <div class="sbox"><div class="sv">${(stat.solved_ids||[]).length}</div><div class="sk">고유 정답</div></div>
     <div class="sbox"><div class="sv">${lv}</div><div class="sk">레벨</div></div>`;
+}
+async function goStat(uid){
+  stopAudio();clearTimer();killVideoIframe();
+  showScreen('stat');setPageMeta('스탯','/stat');
+  const targetId=uid||currentUser?.id;
+  if(!targetId){toast('로그인이 필요해요');return;}
+  // 유저 정보
+  let userRow={};
+  try{const r=await sbSelect('users','select=*&id=eq.'+targetId);userRow=r[0]||{};}catch(e){}
+  const exp=userRow.exp||0;
+  const coins=userRow.coins||0;
+  const solved=(userRow.solved_ids||[]).length;
+  const lv=getLevel(exp);
+  const nick=userRow.nickname||'?';
+  const isSelf=currentUser&&currentUser.id===targetId;
+  // 만든 퀴즈 수
+  let quizCount=0;
+  try{const qr=await sbSelect('quizzes','select=id&owner_id=eq.'+targetId);quizCount=(qr||[]).length;}catch(e){}
+  // EXP 바
+  const curLvExp=EXP_PER_LEVEL[lv-1]||0;
+  const nextLvExp=EXP_PER_LEVEL[lv]||EXP_PER_LEVEL[EXP_PER_LEVEL.length-1];
+  const pct=lv>=EXP_PER_LEVEL.length?100:Math.round((exp-curLvExp)/(nextLvExp-curLvExp)*100);
+  const lvColor=getLevelColor(lv);
+
+  document.getElementById('stat-profile').innerHTML=`
+    <div style="font-size:28px;margin-bottom:8px">👤</div>
+    <div style="font-size:20px;font-weight:800">${esc(nick)}${getLevelBadge(lv)}</div>
+    ${isSelf?`<div style="font-size:13px;color:var(--text3);margin-top:4px">${coins}💰 보유</div>`:''}
+  `;
+  document.getElementById('stat-main').innerHTML=`
+    <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-weight:700;font-size:15px">레벨 ${lv}</span>
+        <span style="font-size:13px;color:var(--text3)">${exp} EXP</span>
+      </div>
+      <div style="background:var(--bg3);border-radius:99px;height:10px;overflow:hidden">
+        <div style="background:${lvColor};height:100%;width:${pct}%;border-radius:99px;transition:width .6s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:right">
+        ${lv>=EXP_PER_LEVEL.length?'최고 레벨!':'다음 레벨까지 '+(nextLvExp-exp)+' EXP'}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="sbox"><div class="sv">${solved}</div><div class="sk">고유 정답</div></div>
+      <div class="sbox"><div class="sv">${quizCount}</div><div class="sk">제작한 퀴즈</div></div>
+      ${isSelf?`<div class="sbox"><div class="sv">${coins}💰</div><div class="sk">보유 코인</div></div>`:''}
+    </div>
+    <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);padding:16px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px">🏅 레벨 색상 가이드</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px">
+        ${[1,2,4,6,8,10].map(l=>`<span style="background:${getLevelColor(l)};color:#000;padding:2px 8px;border-radius:4px;font-weight:700">Lv.${l}+</span>`).join('')}
+      </div>
+    </div>
+  `;
 }
 function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();loadStatSection();setPageMeta('설정','/settings');}
 async function goHome(){stopAudio();clearTimer();killVideoIframe();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
@@ -1774,14 +1837,14 @@ const BAD=['비속어','욕설'];
 document.getElementById('mk-ttl').addEventListener('input',function(){const h=document.getElementById('ttl-hint');if(this.value.length>0&&this.value.length<2)h.textContent='제목은 2자 이상';else if(BAD.some(b=>this.value.includes(b)))h.textContent='적절하지 않은 제목';else h.textContent='';});
 
 async function publishQuiz(){
-  // 신규 퀴즈 제작 시 30코인 차감
+  // 신규 퀴즈 제작 시 100코인 차감
   if(!quizId_override&&!isAdmin){
     if(!currentUser){toast('로그인이 필요해요');return;}
     const stat=await getUserStat(currentUser.id);
     const curCoins=stat.coins||0;
-    if(curCoins<30){toast('퀴즈 제작에는 30코인이 필요해요! (현재: '+curCoins+'코인)\n문제를 풀어서 코인을 모아보세요!');return;}
-    await sbUpdate('users','id=eq.'+currentUser.id,{coins:curCoins-30});
-    currentUser.coins=curCoins-30;
+    if(curCoins<100){toast('퀴즈 제작에는 100코인이 필요해요! (현재: '+curCoins+'코인)\n문제를 풀어서 코인을 모아보세요!');return;}
+    await sbUpdate('users','id=eq.'+currentUser.id,{coins:curCoins-100});
+    currentUser.coins=curCoins-100;
     localStorage.setItem('qbox_user',JSON.stringify(currentUser));
     updateNavAuth();
   }
