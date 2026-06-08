@@ -455,6 +455,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     <div style="display:flex;gap:8px">
       <button class="btn btn-full" onclick="goHome()">취소</button>
       <button id="mk-pub-btn" class="btn btn-acc btn-full btn-lg" onclick="publishQuiz()">🚀 퀴즈 올리기</button>
+      <div id="mk-coin-notice" style="text-align:center;font-size:12px;color:var(--text3);margin-top:6px">💰 신규 퀴즈 등록 시 <b>100코인</b>이 소모됩니다</div>
     </div>
   </div>
 </div>
@@ -513,7 +514,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 <!-- STAT -->
 <div class="screen" id="screen-stat">
-  <div class="wrap" style="max-width:520px">
+  <div class="wrap" style="max-width:520px;margin:0 auto">
     <button class="back-btn" onclick="goHome()">← 홈으로</button>
     <div id="stat-profile" style="text-align:center;margin-bottom:24px"></div>
     <div id="stat-main" style="display:flex;flex-direction:column;gap:14px"></div>
@@ -697,7 +698,14 @@ function getLevelBadge(lv){
   return`<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:${getLevelColor(lv)};color:#000;margin-left:4px">Lv.${lv}</span>`;
 }
 async function getUserStat(uid){
-  try{const r=await sbSelect('users','select=exp,coins,solved_ids&id=eq.'+uid);return r[0]||{exp:0,coins:0,solved_ids:[]};}catch(e){return{exp:0,coins:0,solved_ids:[]};}
+  try{
+    const r=await sbSelect('users','select=exp,coins,solved_ids&id=eq.'+uid);
+    console.log('[getUserStat] uid:',uid,'rows:',r);
+    return r[0]||{exp:0,coins:0,solved_ids:[]};
+  }catch(e){
+    console.error('[getUserStat] error:',e);
+    return{exp:0,coins:0,solved_ids:[]};
+  }
 }
 async function addExpAndCoins(correctQids){
   if(!currentUser)return;
@@ -1279,6 +1287,7 @@ async function openEditQuestions(){
   renderMkList();renderCatPick();
   const ht=document.getElementById('mk-hero-ttl');if(ht)ht.textContent='✏️ 퀴즈 수정';
   document.getElementById('mk-pub-btn').textContent='💾 수정 완료';
+  const _cn=document.getElementById('mk-coin-notice');if(_cn)_cn.style.display='none';
   showScreen('maker');toast('내용을 수정한 후 저장하세요');
 }
 async function editQuizPrivacy(){
@@ -1830,6 +1839,7 @@ function goMaker(){
   renderMkList();renderCatPick();
   const ht2=document.getElementById('mk-hero-ttl');if(ht2)ht2.textContent='✏️ 퀴즈 만들기';
   const pb=document.getElementById('mk-pub-btn');if(pb)pb.textContent='🚀 퀴즈 등록하기';
+  const cn2=document.getElementById('mk-coin-notice');if(cn2)cn2.style.display='';
   showScreen('maker');
 }
 function handleThumb(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{mkThumb=ev.target.result;const p=document.getElementById('thumb-prev');p.src=mkThumb;p.style.display='block';document.getElementById('thumb-ut').textContent='✅ '+f.name;};r.readAsDataURL(f);}
