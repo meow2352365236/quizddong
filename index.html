@@ -434,6 +434,10 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
         <label>비공개 비밀번호 (선택)</label>
         <input type="password" id="mk-quiz-pw" placeholder="비밀번호 설정 시 입력 후 열람 가능">
       </div>
+      <div class="fl" style="margin-top:10px">
+        <label>공동 작업자 <span style="font-size:11px;color:var(--text3)">(닉네임, 쉼표로 구분)</span></label>
+        <input type="text" id="mk-collabs" class="inp" placeholder="예: 홍길동, 김철수" autocomplete="off">
+      </div>
       <div class="toggle-row" id="mk-19-row" style="display:none">
         <div><div class="toggle-label">🔞 19금</div><div class="toggle-desc">성인용 콘텐츠 포함 시 체크 (관리자 검토)</div></div>
         <label class="toggle"><input type="checkbox" id="mk-adult"><span class="toggle-slider"></span></label>
@@ -543,6 +547,10 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <h3>정보</h3>
       <p style="font-size:13px;color:var(--text2)">데이터는 Supabase에 저장됩니다. 새로고침하면 최신 데이터를 불러와요.</p>
     </div>
+    <div class="settings-section" id="stat-section" style="display:none">
+      <h3>📊 내 스탯</h3>
+      <div id="stat-box" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px"></div>
+    </div>
     <div class="settings-section">
       <h3>📋 업데이트 로그</h3>
       <div id="update-log-display" style="font-size:13px;color:var(--text2);white-space:pre-wrap;line-height:1.7"></div>
@@ -557,7 +565,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <div class="auth-ttl" id="auth-ttl">로그인</div>
       <div class="auth-sub" id="auth-sub">퀴즈캣에 오신 것을 환영해요</div>
       <div class="auth-err" id="auth-err"></div>
-      <div class="fl"><label>닉네임</label><input type="text" id="auth-nick" placeholder="닉네임 입력" maxlength="20" autocomplete="off"></div>
+      <div class="fl"><label>닉네임</label><input type="text" id="auth-nick" placeholder="닉네임 입력" maxlength="15" autocomplete="off"></div>
       <div class="fl"><label>비밀번호</label><input type="password" id="auth-pw" placeholder="비밀번호 입력" autocomplete="new-password"></div>
       <div class="fl" id="auth-pw2-wrap" style="display:none"><label>비밀번호 확인</label><input type="password" id="auth-pw2" placeholder="비밀번호 재입력" autocomplete="new-password"></div>
       <button class="btn btn-acc btn-full btn-lg" onclick="submitAuth()" id="auth-submit-btn">로그인</button>
@@ -660,6 +668,49 @@ async function uploadFile(bucket,path,file){const r=await fetch(`${SUPABASE_URL}
 let currentUser = null; // {id, nickname}
 let authMode = 'login'; // 'login' | 'register'
 
+
+// ══ 레벨 시스템 ══
+const EXP_PER_LEVEL = [0,50,120,220,350,520,730,990,1300,1670,2100]; // 레벨별 필요 누적 경험치
+function getLevel(exp){
+  let lv=1;
+  for(let i=1;i<EXP_PER_LEVEL.length;i++){if(exp>=EXP_PER_LEVEL[i])lv=i+1;else break;}
+  return Math.min(lv,EXP_PER_LEVEL.length);
+}
+function getLevelColor(lv){
+  if(lv>=10)return'#ff4444';
+  if(lv>=8)return'#ff9900';
+  if(lv>=6)return'#ffdd00';
+  if(lv>=4)return'#44cc88';
+  if(lv>=2)return'#66aaff';
+  return'#aaaaaa';
+}
+function getLevelBadge(lv){
+  return`<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;background:${getLevelColor(lv)};color:#000;margin-left:4px">Lv.${lv}</span>`;
+}
+async function getUserStat(uid){
+  try{const r=await sbSelect('users','select=exp,coins,solved_ids&id=eq.'+uid);return r[0]||{exp:0,coins:0,solved_ids:[]};}catch(e){return{exp:0,coins:0,solved_ids:[]};}
+}
+async function addExpAndCoins(correctQids){
+  if(!currentUser)return;
+  const stat=await getUserStat(currentUser.id);
+  const solved=stat.solved_ids||[];
+  let expGain=0,coinGain=0;
+  const newSolved=[...solved];
+  for(const qid of correctQids){
+    coinGain+=10; // 정답 시 항상 10코인
+    if(!solved.includes(qid)){expGain+=20;newSolved.push(qid);} // 첫 정답만 경험치
+  }
+  if(expGain===0&&coinGain===0)return;
+  const newExp=(stat.exp||0)+expGain;
+  const newCoins=(stat.coins||0)+coinGain;
+  await sbUpdate('users','id=eq.'+currentUser.id,{exp:newExp,coins:newCoins,solved_ids:newSolved});
+  currentUser.exp=newExp;currentUser.coins=newCoins;currentUser.solvedIds=newSolved;
+  const oldLv=getLevel(stat.exp||0);
+  const newLv=getLevel(newExp);
+  if(newLv>oldLv)toast('🎉 레벨업! Lv.'+newLv+' 달성!');
+  else if(expGain>0||coinGain>0)toast('✨ +'+expGain+'EXP +'+coinGain+'코인 획득!');
+  updateNavAuth();
+}
 function hashPw(pw) {
   // simple hash — good enough for this use case
   let h = 0;
@@ -690,6 +741,13 @@ async function submitAuth(){
     if(rows[0].password_hash!==hashPw(pw)){showAuthErr('비밀번호가 틀렸어요');return;}
     currentUser={id:rows[0].id,nickname:nick};
   }
+  // 레벨/경험치/코인 로드
+  try{
+    const stat=await getUserStat(currentUser.id);
+    currentUser.exp=stat.exp||0;currentUser.coins=stat.coins||0;
+    currentUser.solvedIds=stat.solved_ids||[];
+    currentUser.level=getLevel(currentUser.exp);
+  }catch(e){}
   localStorage.setItem('qbox_user',JSON.stringify(currentUser));
   toast(`👋 환영해요, ${currentUser.nickname}님!`);
   updateNavAuth();
@@ -711,7 +769,8 @@ function updateNavAuth(){
   const sbns=document.getElementById('settings-auth-btns');
   const accs=document.getElementById('account-status');
   if(currentUser){
-    area.innerHTML=`<span class="nav-user">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}</span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
+    const lv=currentUser.level||getLevel(currentUser.exp||0);
+    area.innerHTML=`<span class="nav-user">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
     if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="goMyQuiz()">📋 내 퀴즈 보기</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
     if(accs)accs.textContent=`로그인됨: ${currentUser.nickname}`;
   } else {
@@ -958,11 +1017,35 @@ async function postNoticeItem(){
   cancelNoticeEdit();
   loadNoticeList();
 }
-function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();setPageMeta('설정','/settings');}
+async function loadStatSection(){
+  if(!currentUser){document.getElementById('stat-section').style.display='none';return;}
+  document.getElementById('stat-section').style.display='';
+  const stat=await getUserStat(currentUser.id);
+  const lv=getLevel(stat.exp||0);
+  const curExp=stat.exp||0;
+  const nextLvExp=EXP_PER_LEVEL[lv]||EXP_PER_LEVEL[EXP_PER_LEVEL.length-1];
+  const prevLvExp=EXP_PER_LEVEL[lv-1]||0;
+  const pct=Math.round((curExp-prevLvExp)/(nextLvExp-prevLvExp)*100);
+  document.getElementById('stat-box').innerHTML=`
+    <div class="sbox" style="grid-column:1/-1">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        ${getLevelBadge(lv)}
+        <span style="font-size:13px;color:var(--text2)">Lv.${lv} · ${curExp} EXP</span>
+      </div>
+      <div style="background:var(--bg3);border-radius:99px;height:8px;overflow:hidden">
+        <div style="background:var(--accent);height:100%;width:${Math.min(100,pct)}%;border-radius:99px;transition:width .5s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">다음 레벨까지 ${nextLvExp-curExp} EXP</div>
+    </div>
+    <div class="sbox"><div class="sv">${stat.coins||0}💰</div><div class="sk">보유 코인</div></div>
+    <div class="sbox"><div class="sv">${(stat.solved_ids||[]).length}</div><div class="sk">고유 정답</div></div>
+    <div class="sbox"><div class="sv">${lv}</div><div class="sk">레벨</div></div>`;
+}
+function goSettings(){stopAudio();clearTimer();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();loadStatSection();setPageMeta('설정','/settings');}
 async function goHome(){stopAudio();clearTimer();killVideoIframe();showScreen('home');renderCats();await renderGrid();setPageMeta('','/');}
 window.addEventListener('popstate',()=>{const p=location.pathname;if(p==='/settings')goSettings();else goHome();});
 
-function rowToQuiz(row){return{id:row.id,title:row.title,desc:row.description,category:row.category,thumb:row.thumb,thumbEmoji:row.thumb_emoji,questions:row.questions||[],plays:row.plays||0,scores:row.scores||[],isPrivate:row.is_private,isAdult:row.is_adult,createdAt:row.created_at,ownerId:row.owner_id,ownerNickname:row.owner_nickname,quizPassword:row.quiz_password,likes:row.likes||0,hideAnswer:row.hide_answer||false};}
+function rowToQuiz(row){return{id:row.id,title:row.title,desc:row.description,category:row.category,thumb:row.thumb,thumbEmoji:row.thumb_emoji,questions:row.questions||[],plays:row.plays||0,scores:row.scores||[],isPrivate:row.is_private,isAdult:row.is_adult,createdAt:row.created_at,ownerId:row.owner_id,ownerNickname:row.owner_nickname,quizPassword:row.quiz_password,likes:row.likes||0,hideAnswer:row.hide_answer||false,collaborators:row.collaborators||[]};}
 
 // ═══ GRID ═══
 async function renderGrid(){
@@ -1002,7 +1085,8 @@ async function openDetail(id){
     quiz=rowToQuiz(rows[0]);
     if(!quiz||!quiz.id){toast('퀴즈 데이터가 올바르지 않아요');await goHome();return;}
   }catch(e){console.error(e);toast('로드 실패');await goHome();return;}
-  const isMine=currentUser&&quiz.ownerId===currentUser.id;
+  const isMine=currentUser&&(quiz.ownerId===currentUser.id||(quiz.collaborators||[]).includes(currentUser.nickname));
+  const isCollabOnly=currentUser&&isMine&&quiz.ownerId!==currentUser.id;
   const isLocked=quiz.isPrivate&&!isMine&&!isAdmin;
   // password check
   if(isLocked&&quiz.quizPassword){
@@ -1482,6 +1566,11 @@ async function renderRes(){
   if(currentUser&&document.getElementById('cn'))document.getElementById('cn').value=currentUser.nickname;
   if(pScore>0)launchConfetti(rate);
   setTimeout(renderResultDetail,50);
+  // 경험치/코인 지급
+  if(currentUser&&pResults.length){
+    const correctQids=pResults.filter(r=>r.ok).map(r=>curQid+'_q'+pQ.indexOf(r.q));
+    if(correctQids.length)addExpAndCoins(correctQids);
+  }
 }
 
 function getCmtKey(qid){return 'cmt_'+(qid||curQid)+'_'+new Date().toDateString();}
@@ -1516,7 +1605,8 @@ async function postDetC(qid){
   if(!txt){toast('댓글 내용을 입력해주세요');return;}
   if(getCmtLeft(qid)<=0){toast('오늘 댓글 한도 도달');return;}
   const cl=await getComments(qid);
-  cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR'),likes:0,replies:[]});
+  const detCmtLv=currentUser?getLevel(currentUser.exp||0):1;
+  cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR'),likes:0,replies:[],level:detCmtLv});
   await putComments(qid,cl);
   useCmt(qid);t.value='';
   loadDetComments(qid);
@@ -1537,7 +1627,8 @@ function renderComments(cl,qid){
     const realIdx=cl.length-1-ri;
     const replies=(c.replies||[]).map((r,ridx)=>`<div class="ritem"><div class="ri-top"><span class="rn">↳ ${esc(r.nick)}</span>${isAdmin?`<button class="ci-del" onclick="deleteReply('${qid}',${realIdx},${ridx})">✕</button>`:''}</div><div class="rt">${esc(r.text)}</div><div class="rd">${r.time}</div></div>`).join('');
     const likedKey=`like_${qid}_${realIdx}`;const liked=localStorage.getItem(likedKey)==='1';
-    return `<div class="citem"><div class="ci-top"><span class="cn">${esc(c.nick)}</span><div class="ci-actions"><button class="ci-like${liked?' liked':''}" onclick="toggleCommentLike('${qid}',${realIdx})">♥ ${c.likes||0}</button><button class="ci-reply-btn" onclick="toggleReplyForm(${realIdx})">↩ 답글</button>${isAdmin?`<button class="ci-del" onclick="deleteComment('${qid}',${realIdx})">✕</button>`:''}</div></div><div class="ct">${esc(c.text)}</div><div class="cd">${c.time}</div>${replies?`<div class="reply-list">${replies}</div>`:''}<div class="reply-form" id="rf-${realIdx}" style="display:none;gap:6px"><input type="text" id="ri-${realIdx}" placeholder="닉네임" style="max-width:80px"><input type="text" id="rt-${realIdx}" placeholder="답글 입력"><button class="btn btn-acc btn-sm" onclick="postReply('${qid}',${realIdx})">등록</button></div></div>`;
+    const clv=c.level||1;
+    return `<div class="citem"><div class="ci-top"><span class="cn">${esc(c.nick)}${getLevelBadge(clv)}</span><div class="ci-actions"><button class="ci-like${liked?' liked':''}" onclick="toggleCommentLike('${qid}',${realIdx})">♥ ${c.likes||0}</button><button class="ci-reply-btn" onclick="toggleReplyForm(${realIdx})">↩ 답글</button>${isAdmin?`<button class="ci-del" onclick="deleteComment('${qid}',${realIdx})">✕</button>`:''}</div></div><div class="ct">${esc(c.text)}</div><div class="cd">${c.time}</div>${replies?`<div class="reply-list">${replies}</div>`:''}<div class="reply-form" id="rf-${realIdx}" style="display:none;gap:6px"><input type="text" id="ri-${realIdx}" placeholder="닉네임" style="max-width:80px"><input type="text" id="rt-${realIdx}" placeholder="답글 입력"><button class="btn btn-acc btn-sm" onclick="postReply('${qid}',${realIdx})">등록</button></div></div>`;
   }).join('');
 }
 function toggleReplyForm(idx){const f=document.getElementById('rf-'+idx);if(f)f.style.display=f.style.display==='flex'?'none':'flex';}
@@ -1548,7 +1639,8 @@ async function postC(){
   const text=document.getElementById('ct').value.trim();if(!text){toast('댓글 내용을 입력해주세요');return;}
   if(getCmtLeft(curQid)<=0){toast('오늘 댓글 한도 도달');return;}
   const cl=await getComments(curQid);
-  cl.push({nick,text,time:new Date().toLocaleString('ko-KR'),likes:0,replies:[]});
+  const cmtLv=currentUser?getLevel(currentUser.exp||0):1;
+  cl.push({nick,text,time:new Date().toLocaleString('ko-KR'),likes:0,replies:[],level:cmtLv});
   await putComments(curQid,cl);
   useCmt(curQid);toast('댓글이 등록됐어요!');renderRes();
 }
@@ -1617,14 +1709,25 @@ async function startEditQuiz(id){
 async function goMyQuiz(){
   if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
   stopAudio();clearTimer();killVideoIframe();showScreen('myquiz');
-  const rows=await sbSelect('quizzes',`owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]);
+  const [ownRows,allRows]=await Promise.all([
+    sbSelect('quizzes',`owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]),
+    sbSelect('quizzes','select=*&order=created_at.desc').catch(()=>[])
+  ]);
+  // 공동 작업자로 참여한 퀴즈
+  const collabRows=allRows.filter(r=>(r.collaborators||[]).includes(currentUser.nickname)&&r.owner_id!==currentUser.id);
   const list=document.getElementById('myq-list');
-  if(!rows.length){list.innerHTML='<div class="empty"><div class="ei">📭</div><p>아직 만든 퀴즈가 없어요.<br>첫 퀴즈를 만들어보세요!</p></div>';return;}
-  list.innerHTML=rows.map(r=>{
+  function renderQRow(r,isCollab){
     const q=rowToQuiz(r);
     const thumb=q.thumb?`<img class="myq-thumb" src="${q.thumb}" alt="">`:`<div class="myq-thumb">${q.thumbEmoji||'🎯'}</div>`;
-    return `<div class="myq-item">${thumb}<div class="myq-body"><div class="myq-ttl">${esc(q.title)}${q.isPrivate?' 🔒':''}</div><div class="myq-meta">${(q.questions||[]).length}문제 · ▶ ${q.plays||0}회 · ${q.category}</div></div><div class="myq-actions"><button class="btn btn-sm" onclick="startEditQuiz('${q.id}')">✏️ 수정</button><button class="btn btn-sm" onclick="openDetail('${q.id}')">보기</button><button class="btn btn-sm" onclick="togglePrivacyDirect('${q.id}',${q.isPrivate})">${q.isPrivate?'공개':'비공개'}</button><button class="btn btn-sm btn-red" onclick="deleteMyQuiz('${q.id}')">삭제</button></div></div>`;
-  }).join('');
+    const collabBadge=isCollab?'<span style="font-size:10px;background:#4499ff;color:#fff;padding:1px 5px;border-radius:4px;margin-left:4px">공동작업</span>':'';
+    const ownerTag=isCollab?`<span style="font-size:11px;color:var(--text3)"> · by ${esc(q.ownerNickname)}</span>`:'';
+    return `<div class="myq-item">${thumb}<div class="myq-body"><div class="myq-ttl">${esc(q.title)}${q.isPrivate?' 🔒':''}${collabBadge}</div><div class="myq-meta">${(q.questions||[]).length}문제 · ▶ ${q.plays||0}회 · ${q.category}${ownerTag}</div></div><div class="myq-actions"><button class="btn btn-sm" onclick="startEditQuiz('${q.id}')">✏️ 수정</button><button class="btn btn-sm" onclick="openDetail('${q.id}')">보기</button>${!isCollab?`<button class="btn btn-sm" onclick="togglePrivacyDirect('${q.id}',${q.isPrivate})">${q.isPrivate?'공개':'비공개'}</button><button class="btn btn-sm btn-red" onclick="deleteMyQuiz('${q.id}')">삭제</button>`:''}</div></div>`;
+  }
+  if(!ownRows.length&&!collabRows.length){list.innerHTML='<div class="empty"><div class="ei">📭</div><p>아직 만든 퀴즈가 없어요.<br>첫 퀴즈를 만들어보세요!</p></div>';return;}
+  let html2='';
+  if(ownRows.length)html2+=`<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">내가 만든 퀴즈</div>`+ownRows.map(r=>renderQRow(r,false)).join('');
+  if(collabRows.length)html2+=`<div style="font-size:12px;font-weight:700;color:#4499ff;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.04em">공유된 퀴즈</div>`+collabRows.map(r=>renderQRow(r,true)).join('');
+  list.innerHTML=html2;
 }
 async function togglePrivacyDirect(id,cur){await sbUpdate('quizzes',`id=eq.${id}`,{is_private:!cur});toast(!cur?'🔒 비공개로 전환됐어요':'🔓 공개로 전환됐어요');goMyQuiz();}
 async function deleteMyQuiz(id){if(!confirm('이 퀴즈를 삭제할까요?'))return;await sbDelete('quizzes',`id=eq.${id}`);await sbDelete('comments',`quiz_id=eq.${id}`);toast('삭제됐어요');goMyQuiz();}
@@ -1656,6 +1759,14 @@ const BAD=['비속어','욕설'];
 document.getElementById('mk-ttl').addEventListener('input',function(){const h=document.getElementById('ttl-hint');if(this.value.length>0&&this.value.length<2)h.textContent='제목은 2자 이상';else if(BAD.some(b=>this.value.includes(b)))h.textContent='적절하지 않은 제목';else h.textContent='';});
 
 async function publishQuiz(){
+  // 신규 퀴즈 제작 시 30코인 차감
+  if(!quizId_override&&currentUser&&!isAdmin){
+    const stat=await getUserStat(currentUser.id);
+    if((stat.coins||0)<30){toast('퀴즈 제작에는 30코인이 필요해요! (현재: '+(stat.coins||0)+'코인)');return;}
+    await sbUpdate('users','id=eq.'+currentUser.id,{coins:(stat.coins||0)-30});
+    currentUser.coins=(stat.coins||0)-30;
+    updateNavAuth();
+  }
   if(!currentUser){toast('로그인이 필요해요');return;}
   const title=document.getElementById('mk-ttl').value.trim();
   const desc=document.getElementById('mk-desc').value.trim();
@@ -1666,6 +1777,8 @@ async function publishQuiz(){
   const quizPw=isPrivate?document.getElementById('mk-quiz-pw').value.trim():'';
   const isAdult=isAdmin&&document.getElementById('mk-adult').checked;
   const hideAnswer=document.getElementById('mk-hide-ans').checked;
+  const collabRaw=document.getElementById('mk-collabs').value||'';
+  const collaborators=collabRaw.split(',').map(s=>s.trim()).filter(Boolean);
   toast('⏳ 업로드 중...');
   const finalQs=[];
   for(const q of mkQs){
@@ -1687,7 +1800,7 @@ async function publishQuiz(){
     try{const ex=await sbSelect('quizzes','select=plays,scores,created_at&id=eq.'+quizId_override);
     if(ex&&ex[0]){existingData={plays:ex[0].plays||0,scores:ex[0].scores||[],created_at:ex[0].created_at||Date.now()};}}catch(e){}
   }
-  await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:existingData.plays,scores:existingData.scores,created_at:existingData.created_at,is_private:isPrivate,is_adult:isAdult,hide_answer:hideAnswer,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw});
+  await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:existingData.plays,scores:existingData.scores,created_at:existingData.created_at,is_private:isPrivate,is_adult:isAdult,hide_answer:hideAnswer,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw,collaborators});
   }catch(e){toast('업로드 실패: '+e.message);return;}
   toast(quizId_override?'✅ 퀴즈가 수정됐어요!':'🎉 퀴즈가 등록됐어요!');
   if(quizId_override){const eid=quizId_override;quizId_override=null;setTimeout(()=>openDetail(eid),800);}else{setTimeout(goHome,800);}
