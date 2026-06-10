@@ -307,6 +307,36 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 .editor-toolbar select{background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-size:12px;color:var(--text);cursor:pointer}
 .rich-editor{min-height:160px;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 12px;color:var(--text);font-size:13px;line-height:1.7;outline:none;overflow-y:auto}
 .rich-editor:focus{border-color:var(--accent)}
+
+/* ══ 월드캣 ══ */
+.wc-home{padding:0 0 80px}
+.wc-hero{background:linear-gradient(135deg,var(--accent) 0%,#e91e8c 100%);color:#fff;padding:40px 20px;text-align:center;margin-bottom:20px}
+.wc-hero h1{font-size:28px;font-weight:900;margin-bottom:8px}
+.wc-hero p{font-size:14px;opacity:.85}
+.wc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;padding:0 16px}
+.wc-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:transform .15s}
+.wc-card:hover{transform:translateY(-2px)}
+.wc-card-thumb{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:40px}
+.wc-card-body{padding:12px}
+.wc-card-ttl{font-weight:700;font-size:14px;margin-bottom:4px}
+.wc-card-meta{font-size:12px;color:var(--text3)}
+/* 대결 화면 */
+.wc-battle{display:flex;flex-direction:column;align-items:center;padding:20px;gap:16px;min-height:70vh}
+.wc-round-info{font-size:13px;color:var(--text3);text-align:center;font-weight:600}
+.wc-vs-wrap{display:flex;gap:16px;width:100%;max-width:700px}
+.wc-item-btn{flex:1;background:var(--bg2);border:2.5px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:all .2s;text-align:center}
+.wc-item-btn:hover{border-color:var(--accent);transform:scale(1.02)}
+.wc-item-img{width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:60px}
+.wc-item-name{padding:12px 8px;font-weight:700;font-size:15px}
+.wc-vs-badge{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:var(--accent);flex-shrink:0;width:40px}
+/* 결과 */
+.wc-result{text-align:center;padding:30px 20px}
+.wc-winner-img{width:180px;height:180px;object-fit:cover;border-radius:var(--rl);margin:0 auto 16px;display:block;border:3px solid var(--accent)}
+.wc-rank-list{text-align:left;max-width:480px;margin:20px auto 0}
+.wc-rank-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px}
+/* 제작 */
+.wc-make-item{background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:10px 12px;display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.wc-make-item-thumb{width:50px;height:50px;object-fit:cover;border-radius:6px;background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px}
 </style>
 </head>
 <body class="theme-warm">
@@ -317,7 +347,8 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
   <div id="nav-auth-area"></div>
   <button class="nbtn" onclick="goNotice()">📢 공지</button>
   <button class="nbtn" onclick="goSettings()">⚙ 설정</button>
-  <button class="nbtn pri" onclick="goMaker()">+ 퀴즈 만들기</button>
+  <button class="nbtn" id="site-switch-btn" onclick="toggleSite()" style="background:var(--bg3);border:1.5px solid var(--border)">🐾 월드캣</button>
+  <button class="nbtn pri" id="maker-btn" onclick="goMaker()">+ 퀴즈 만들기</button>
 </nav>
 <div class="notice-bar"><div class="notice-dot"></div><div id="notice-txt">퀴즈캣에 오신 것을 환영합니다! 🎉</div></div>
 <div id="update-log-bar" style="display:none;background:var(--bg2);border-bottom:1px solid var(--border);padding:6px 16px;font-size:12px;color:var(--text2);white-space:pre-wrap;line-height:1.6"><span style="font-weight:700;color:var(--accent);margin-right:8px">📋 업데이트</span><span id="update-log-bar-txt"></span></div>
@@ -399,6 +430,69 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
   </div>
 </div>
 
+
+<!-- WORLDCAT HOME -->
+<div class="screen" id="screen-wc-home">
+  <div class="wc-hero">
+    <h1>🐾 월드캣</h1>
+    <p>이상형 월드컵을 만들고 즐겨보세요!</p>
+  </div>
+  <div style="padding:0 16px 16px;display:flex;gap:8px">
+    <button class="btn btn-acc btn-sm" onclick="goWcMaker()">+ 월드컵 만들기</button>
+  </div>
+  <div class="wc-grid" id="wc-grid">
+    <div style="color:var(--text3);text-align:center;padding:40px;grid-column:1/-1">불러오는 중...</div>
+  </div>
+</div>
+
+<!-- WORLDCAT BATTLE -->
+<div class="screen" id="screen-wc-battle">
+  <div class="wrap" style="max-width:740px">
+    <button class="back-btn" onclick="goWcHome()">← 월드캣 홈</button>
+    <div id="wc-battle-content"></div>
+  </div>
+</div>
+
+<!-- WORLDCAT RESULT -->
+<div class="screen" id="screen-wc-result">
+  <div class="wrap" style="max-width:600px">
+    <div class="wc-result" id="wc-result-content"></div>
+  </div>
+</div>
+
+<!-- WORLDCAT MAKER -->
+<div class="screen" id="screen-wc-maker">
+  <div class="wrap" style="max-width:680px">
+    <button class="back-btn" onclick="goWcHome()">← 취소</button>
+    <div style="font-size:20px;font-weight:800;margin-bottom:20px" id="wc-maker-title">🐾 월드컵 만들기</div>
+    <div class="settings-section">
+      <h3>기본 정보</h3>
+      <input id="wc-ttl" class="inp" placeholder="제목 *" style="margin-bottom:8px">
+      <textarea id="wc-desc" class="inp" placeholder="설명" style="min-height:60px;margin-bottom:8px;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <select id="wc-item-type" class="inp" onchange="wcTypeChanged()">
+          <option value="image">🖼️ 이미지</option>
+          <option value="video">🎬 영상 (유튜브)</option>
+        </select>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>항목 추가 <span style="font-size:12px;color:var(--text3)">(최소 4개, 2의 배수)</span></h3>
+      <div id="wc-item-form" style="margin-bottom:12px">
+        <input id="wc-item-name" class="inp" placeholder="항목 이름 *" style="margin-bottom:6px">
+        <div id="wc-item-img-area">
+          <input id="wc-item-img-file" type="file" accept="image/*" class="inp" style="margin-bottom:6px">
+        </div>
+        <div id="wc-item-vid-area" style="display:none">
+          <input id="wc-item-yt" class="inp" placeholder="유튜브 URL" style="margin-bottom:6px">
+        </div>
+        <button class="btn btn-acc btn-sm" onclick="wcAddItem()">+ 항목 추가</button>
+      </div>
+      <div id="wc-item-list"></div>
+    </div>
+    <button class="btn btn-acc btn-full btn-lg" onclick="wcPublish()">🚀 월드컵 등록</button>
+  </div>
+</div>
 
 <!-- PLAY -->
 <div class="screen" id="screen-play">
@@ -954,6 +1048,249 @@ function applyTheme(id){document.body.className='theme-'+id;localStorage.setItem
 function renderThemeGrid(){const cur=localStorage.getItem(TK)||'warm';document.getElementById('theme-grid').innerHTML=THEMES.map(t=>`<div class="theme-card${t.id===cur?' on':''}" onclick="applyTheme('${t.id}')"><div class="tc-preview" style="background:${t.c[0]}"><div class="tc-circle" style="background:${t.c[2]}"></div><div class="tc-circle" style="background:${t.c[1]}"></div></div><div class="tc-name">${t.name}</div><div class="on-dot"></div></div>`).join('');}
 (()=>{document.body.className='theme-'+(localStorage.getItem(TK)||'warm');isAdmin=localStorage.getItem('qbox_admin')==='1';try{currentUser=JSON.parse(localStorage.getItem('qbox_user')||'null');}catch{currentUser=null;}initUISize();})();
 // 새로고침 시 stat 재로드
+
+// ══════════════════════════════════════════════
+// 월드캣 (이상형 월드컵) 시스템
+// ══════════════════════════════════════════════
+let wcMode='quiz'; // 'quiz' | 'worldcat'
+let wcItems=[],wcRounds=[],wcRoundIdx=0,wcMatchIdx=0,wcWinners=[],wcCurWC=null,wcEditId=null;
+let wcMakeItems=[];
+
+function toggleSite(){
+  wcMode=wcMode==='quiz'?'worldcat':'quiz';
+  if(wcMode==='worldcat'){
+    document.getElementById('site-switch-btn').textContent='🎯 퀴즈캣';
+    document.getElementById('site-switch-btn').style.background='var(--accent)';
+    document.getElementById('site-switch-btn').style.color='#fff';
+    document.getElementById('maker-btn').textContent='+ 월드컵 만들기';
+    document.getElementById('maker-btn').onclick=goWcMaker;
+    goWcHome();
+  } else {
+    document.getElementById('site-switch-btn').textContent='🐾 월드캣';
+    document.getElementById('site-switch-btn').style.background='var(--bg3)';
+    document.getElementById('site-switch-btn').style.color='var(--text)';
+    document.getElementById('maker-btn').textContent='+ 퀴즈 만들기';
+    document.getElementById('maker-btn').onclick=goMaker;
+    goHome();
+  }
+}
+
+async function goWcHome(){
+  stopAudio();clearTimer();killVideoIframe();
+  showScreen('wc-home');setPageMeta('월드캣','/worldcat');
+  const rows=await sbSelect('worldcups','select=*&order=created_at.desc').catch(()=>[]);
+  const grid=document.getElementById('wc-grid');
+  if(!rows.length){grid.innerHTML='<div style="color:var(--text3);text-align:center;padding:40px;grid-column:1/-1">아직 월드컵이 없어요. 첫 번째로 만들어보세요!</div>';return;}
+  grid.innerHTML=rows.map(w=>{
+    const thumb=w.thumb?`<img class="wc-card-thumb" src="${w.thumb}" alt="">`:`<div class="wc-card-thumb">🏆</div>`;
+    const cnt=(w.items||[]).length;
+    return `<div class="wc-card" onclick="startWC('${w.id}')">
+      ${thumb}
+      <div class="wc-card-body">
+        <div class="wc-card-ttl">${esc(w.title)}</div>
+        <div class="wc-card-meta">${cnt}강 · ▶ ${w.plays||0}회</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function startWC(id){
+  const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
+  if(!rows||!rows.length){toast('불러오기 실패');return;}
+  wcCurWC=rows[0];
+  // plays 증가
+  sbUpdate('worldcups',`id=eq.${id}`,{plays:(wcCurWC.plays||0)+1}).catch(()=>{});
+  // 항목 셔플
+  const items=[...(wcCurWC.items||[])];
+  for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
+  wcItems=items;
+  // 라운드 구성 (2의 배수로 조정)
+  let cnt=items.length;
+  while(cnt>1&&(cnt&(cnt-1))!==0)cnt--;
+  wcItems=wcItems.slice(0,cnt);
+  wcRounds=[wcItems];
+  wcRoundIdx=0;wcMatchIdx=0;wcWinners=[];
+  showScreen('wc-battle');
+  renderWCBattle();
+}
+
+function renderWCBattle(){
+  const round=wcRounds[wcRoundIdx];
+  const total=round.length/2;
+  const matchNum=wcMatchIdx+1;
+  const roundName=round.length===2?'결승':round.length===4?'4강':round.length===8?'8강':round.length===16?'16강':round.length+'강';
+  const a=round[wcMatchIdx*2],b=round[wcMatchIdx*2+1];
+  const content=document.getElementById('wc-battle-content');
+
+  function itemHtml(item,idx){
+    let media='';
+    if(wcCurWC.item_type==='video'&&item.ytId){
+      media=`<iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0" style="width:100%;aspect-ratio:16/9;border:none" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
+    } else if(item.image){
+      media=`<img src="${item.image}" style="width:100%;aspect-ratio:1/1;object-fit:cover" alt="">`;
+    } else {
+      media=`<div class="wc-item-img">🏆</div>`;
+    }
+    return `<div class="wc-item-btn" onclick="wcChoose(${idx})">
+      ${media}
+      <div class="wc-item-name">${esc(item.name)}</div>
+    </div>`;
+  }
+
+  content.innerHTML=`
+    <div class="wc-battle">
+      <div class="wc-round-info">
+        <div style="font-size:18px;font-weight:800;color:var(--accent)">${roundName}</div>
+        <div>${matchNum} / ${total} 경기</div>
+        <div style="color:var(--text2);margin-top:4px">${esc(wcCurWC.title)}</div>
+      </div>
+      <div class="wc-vs-wrap">
+        ${itemHtml(a,0)}
+        <div class="wc-vs-badge">VS</div>
+        ${itemHtml(b,1)}
+      </div>
+    </div>`;
+}
+
+async function wcChoose(idx){
+  const round=wcRounds[wcRoundIdx];
+  const winner=round[wcMatchIdx*2+idx];
+  wcWinners.push(winner);
+
+  // 승자 win_stats 업데이트
+  const stats=wcCurWC.win_stats||{};
+  stats[winner.name]=(stats[winner.name]||0)+1;
+  wcCurWC.win_stats=stats;
+
+  wcMatchIdx++;
+  if(wcMatchIdx*2>=round.length){
+    // 라운드 종료
+    if(wcWinners.length===1){
+      // 우승자 결정
+      await sbUpdate('worldcups',`id=eq.${wcCurWC.id}`,{win_stats:stats}).catch(()=>{});
+      showWCResult(wcWinners[0]);
+      return;
+    }
+    wcRounds.push([...wcWinners]);
+    wcRoundIdx++;wcMatchIdx=0;wcWinners=[];
+  }
+  renderWCBattle();
+}
+
+async function showWCResult(winner){
+  showScreen('wc-result');
+  // 전체 통계 로드
+  const rows=await sbSelect('worldcups',`select=win_stats,items&id=eq.${wcCurWC.id}`).catch(()=>[]);
+  const stats=(rows&&rows[0]&&rows[0].win_stats)||{};
+  const items=(rows&&rows[0]&&rows[0].items)||[];
+  // 순위 계산
+  const ranked=items.map(it=>({name:it.name,image:it.image||'',ytId:it.ytId||'',cnt:stats[it.name]||0}))
+    .sort((a,b)=>b.cnt-a.cnt);
+
+  const winMedia=wcCurWC.item_type==='video'&&winner.ytId
+    ?`<iframe src="https://www.youtube.com/embed/${winner.ytId}?autoplay=0&rel=0" style="width:220px;height:150px;border:none;border-radius:var(--rl);margin:0 auto 16px;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe>`
+    :(winner.image?`<img class="wc-winner-img" src="${winner.image}" alt="">`:`<div style="font-size:80px;margin-bottom:16px">🏆</div>`);
+
+  document.getElementById('wc-result-content').innerHTML=`
+    <div style="font-size:24px;font-weight:900;margin-bottom:16px">🏆 우승!</div>
+    ${winMedia}
+    <div style="font-size:20px;font-weight:800;margin-bottom:8px">${esc(winner.name)}</div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:24px">축하합니다!</div>
+    <button class="btn btn-acc btn-sm" onclick="startWC('${wcCurWC.id}')">다시 하기</button>
+    <button class="btn btn-sm" style="margin-left:8px" onclick="goWcHome()">목록으로</button>
+    <div class="wc-rank-list">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px">📊 전체 선택 통계</div>
+      ${ranked.map((r,i)=>`<div class="wc-rank-item">
+        <span style="font-weight:700;min-width:28px">${i+1}.</span>
+        ${r.image?`<img src="${r.image}" style="width:36px;height:36px;object-fit:cover;border-radius:4px" alt="">`:
+          (r.ytId?`<div style="width:36px;height:36px;background:var(--bg3);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px">▶</div>`:'')
+        }
+        <span style="flex:1">${esc(r.name)}</span>
+        <span style="color:var(--text3);font-size:12px">${r.cnt}회</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+// ── 월드캣 제작 ──
+let wcMakeType='image';
+function wcTypeChanged(){
+  wcMakeType=document.getElementById('wc-item-type').value;
+  document.getElementById('wc-item-img-area').style.display=wcMakeType==='image'?'':'none';
+  document.getElementById('wc-item-vid-area').style.display=wcMakeType==='video'?'':'none';
+}
+function goWcMaker(){
+  if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
+  stopAudio();clearTimer();killVideoIframe();
+  wcMakeItems=[];wcEditId=null;
+  document.getElementById('wc-ttl').value='';
+  document.getElementById('wc-desc').value='';
+  document.getElementById('wc-item-type').value='image';
+  wcTypeChanged();
+  renderWcMakeList();
+  document.getElementById('wc-maker-title').textContent='🐾 월드컵 만들기';
+  showScreen('wc-maker');
+}
+function renderWcMakeList(){
+  const el=document.getElementById('wc-item-list');
+  if(!wcMakeItems.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:12px">항목을 추가해주세요</div>';return;}
+  el.innerHTML=wcMakeItems.map((it,i)=>`<div class="wc-make-item">
+    <div class="wc-make-item-thumb">${it.image?`<img src="${it.image}" style="width:50px;height:50px;object-fit:cover;border-radius:6px" alt="">`:(it.ytId?'▶':'🏆')}</div>
+    <div style="flex:1"><div style="font-weight:600;font-size:13px">${esc(it.name)}</div>${it.ytId?`<div style="font-size:11px;color:var(--text3)">${it.ytId}</div>`:''}</div>
+    <button class="btn btn-sm btn-red" onclick="wcRemoveItem(${i})">✕</button>
+  </div>`).join('');
+  const cnt=wcMakeItems.length;
+  const pow=Math.floor(Math.log2(cnt));
+  const valid=cnt>=4&&cnt===(1<<pow);
+  document.getElementById('wc-item-list').innerHTML+=`<div style="font-size:12px;color:${valid?'var(--green)':'var(--red)'};margin-top:8px;text-align:center">현재 ${cnt}개 → ${valid?cnt+'강 진행 가능':'2의 배수(4,8,16,32...)로 맞춰주세요'}</div>`;
+}
+function wcRemoveItem(i){wcMakeItems.splice(i,1);renderWcMakeList();}
+async function wcAddItem(){
+  const name=document.getElementById('wc-item-name').value.trim();
+  if(!name){toast('항목 이름을 입력해주세요');return;}
+  const item={name};
+  if(wcMakeType==='image'){
+    const f=document.getElementById('wc-item-img-file').files[0];
+    if(f){
+      const r=new FileReader();await new Promise(res=>{r.onload=res;r.readAsDataURL(f);});
+      item.image=r.result;
+    }
+  } else {
+    const yt=document.getElementById('wc-item-yt').value.trim();
+    const ytId=extractYT(yt);
+    if(!ytId){toast('유효한 유튜브 URL을 입력해주세요');return;}
+    item.ytId=ytId;
+  }
+  wcMakeItems.push(item);
+  document.getElementById('wc-item-name').value='';
+  document.getElementById('wc-item-img-file').value='';
+  document.getElementById('wc-item-yt').value='';
+  renderWcMakeList();
+  toast('항목이 추가됐어요!');
+}
+async function wcPublish(){
+  const title=document.getElementById('wc-ttl').value.trim();
+  if(!title){toast('제목을 입력해주세요');return;}
+  const cnt=wcMakeItems.length;
+  if(cnt<4){toast('항목은 최소 4개 필요해요');return;}
+  const pow=Math.floor(Math.log2(cnt));
+  if(cnt!==(1<<pow)){toast('항목 수는 2의 배수(4,8,16,32...)여야 해요');return;}
+  const id=wcEditId||('wc_'+Date.now());
+  const thumb=wcMakeItems.find(it=>it.image)?.image||'';
+  await sbUpsert('worldcups',{
+    id,title,
+    description:document.getElementById('wc-desc').value.trim(),
+    item_type:wcMakeType,
+    items:wcMakeItems,
+    thumb,
+    plays:0,
+    win_stats:{},
+    owner_id:currentUser.id,
+    owner_nickname:currentUser.nickname,
+    created_at:Date.now()
+  });
+  toast('월드컵이 등록됐어요!🎉');
+  setTimeout(goWcHome,600);
+}
 async function refreshUserStat(){
   if(!currentUser)return;
   try{
