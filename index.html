@@ -268,7 +268,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 .mod-x{background:none;border:none;color:var(--text3);font-size:19px;cursor:pointer}
 .mod-x:hover{color:var(--text)}
 .tpick{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px}
-.tc{padding:12px 8px;border-radius:var(--r);border:2px solid var(--border);background:var(--bg3);cursor:pointer;text-align:center;transition:all .15s}
+.tc{padding:12px 8px;border-radius:var(--r);border:2px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;text-align:center;transition:all .15s}
 .tc:hover{border-color:var(--accent)}.tc.on{border-color:var(--accent);background:var(--accent-l)}
 .tc .ti{font-size:24px;margin-bottom:5px}.tc .tn{font-size:12px;font-weight:700;color:var(--text)}.tc .td{font-size:10px;color:var(--text3);margin-top:2px}
 .yt-prev-m{border-radius:var(--r);overflow:hidden;margin-top:9px;display:none;border:1.5px solid var(--border)}
@@ -1167,11 +1167,11 @@ async function goWcHome(){
   // 카테고리 버튼
   const cats=['전체', '아이돌', '음식', '동물', '게임', '영화', '음악', '스포츠', '기타'];
   const catEl=document.getElementById('wc-cat-btns');
-  if(catEl)catEl.innerHTML=cats.map(c=>`<button class="cat${c===wcActiveCat?' on':''}" onclick="wcSetCat('${c}')">${c}</button>`).join('');
+  if(catEl)catEl.innerHTML=wcCats.map(c=>`<button class="chip${c===wcActiveCat?' on':''}" onclick="wcSetCat('${c}')">${c}</button>`).join('');
   wcAllData=await sbSelect('worldcups','select=*&order=created_at.desc').catch(()=>[]);
   renderWcGrid();
 }
-function wcSetCat(c){wcActiveCat=c;const els=document.querySelectorAll('#wc-cat-btns .cat');els.forEach(b=>b.classList.toggle('on',b.textContent===c));renderWcGrid();}
+function wcSetCat(c){wcActiveCat=c;const els=document.querySelectorAll('#wc-cat-btns .chip');els.forEach(b=>b.classList.toggle('on',b.textContent===c));renderWcGrid();}
 function renderWcGrid(){
   const q=(document.getElementById('wc-search')||{}).value||'';
   let data=wcAllData.filter(w=>wcActiveCat==='전체'||(w.category||'기타')===wcActiveCat);
@@ -1181,7 +1181,7 @@ function renderWcGrid(){
   const grid=document.getElementById('wc-grid');
   const lcnt=document.getElementById('wc-lcnt');
   if(lcnt)lcnt.innerHTML=`월드컵 <b>${data.length}</b>개`;
-  if(!data.length){grid.innerHTML='<div class="empty"><div class="ei">🏆</div><p>조건에 맞는 월드컵이 없어요.</p></div>';return;}
+  if(!data.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:52px 20px;color:var(--text3)"><div style="font-size:48px;margin-bottom:12px">🏆</div><p>조건에 맞는 월드컵이 없어요.</p></div>';return;}
   grid.innerHTML=data.map(w=>{
     const isMineWc=currentUser&&w.owner_id===currentUser.id;
     const cnt=(w.items||[]).length;
