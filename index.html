@@ -321,13 +321,13 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 .wc-card-ttl{font-weight:700;font-size:14px;margin-bottom:4px}
 .wc-card-meta{font-size:12px;color:var(--text3)}
 /* 대결 화면 */
-.wc-battle{display:flex;flex-direction:column;align-items:center;padding:20px;gap:16px;min-height:70vh}
+.wc-battle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:20px;min-height:60vh}
 .wc-round-info{font-size:13px;color:var(--text3);text-align:center;font-weight:600}
-.wc-vs-wrap{display:flex;gap:16px;width:100%;max-width:700px}
+.wc-vs-wrap{display:flex;gap:20px;width:100%;max-width:900px}
 .wc-item-btn{flex:1;background:var(--bg2);border:2.5px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:all .2s;text-align:center}
-.wc-item-btn:hover{border-color:var(--accent);transform:scale(1.02)}
-.wc-item-img{width:100%;aspect-ratio:1/1;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:60px}
-.wc-item-name{padding:12px 8px;font-weight:700;font-size:15px}
+.wc-item-btn:hover{border-color:var(--accent);transform:scale(1.02);box-shadow:0 8px 32px rgba(109,79,194,.3)}
+.wc-item-img{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:80px}
+.wc-item-name{padding:16px 12px;font-weight:700;font-size:18px}
 .wc-vs-badge{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:var(--accent);flex-shrink:0;width:40px}
 /* 결과 */
 .wc-result{text-align:center;padding:30px 20px}
@@ -459,9 +459,28 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
   </div>
 </div>
 
+<!-- WORLDCAT DETAIL -->
+<div class="screen" id="screen-wc-detail">
+  <div class="det-wrap">
+    <button class="back-btn" onclick="goWcHome()">← 목록으로</button>
+    <div class="det-thumb-box" id="wc-det-thumb-box"><img id="wc-det-thumb-img" src="" alt=""></div>
+    <div class="det-card">
+      <div class="det-cat" id="wc-det-cat"></div>
+      <div class="det-ttl" id="wc-det-ttl"></div>
+      <div class="det-meta" id="wc-det-meta"></div>
+      <div id="wc-det-desc" style="font-size:14px;color:var(--text2);margin-top:8px;margin-bottom:16px"></div>
+      <div class="det-cfg">
+        <div class="cfg-lbl">강 선택</div>
+        <div class="cnt-btns" id="wc-round-btns"></div>
+        <button class="btn btn-acc btn-full btn-lg" style="margin-top:14px" onclick="startWCPlay()">▶ 월드컵 시작하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- WORLDCAT BATTLE -->
 <div class="screen" id="screen-wc-battle">
-  <div class="wrap" style="max-width:740px">
+  <div style="max-width:980px;margin:0 auto;padding:20px 18px 80px">
     <button class="back-btn" onclick="goWcHome()">← 월드캣 홈</button>
     <div id="wc-battle-content"></div>
   </div>
@@ -1185,7 +1204,7 @@ async function goMyWC(){
         <div class="myq-meta">${cnt}강 · ▶ ${w.plays||0}회 · ${w.category||'기타'}</div>
       </div>
       <div class="myq-actions">
-        <button class="btn btn-sm" onclick="startWC('${w.id}')">▶ 시작</button>
+        <button class="btn btn-sm" onclick="openWcDetail('${w.id}')">▶ 시작</button>
         <button class="btn btn-sm btn-red" onclick="deleteMyWC('${w.id}')">삭제</button>
       </div>
     </div>`;
@@ -1226,10 +1245,50 @@ function renderWcGrid(){
       ?`<div class="qthumb-wrap"><img src="${w.thumb}" alt=""></div>`
       :`<div class="qthumb-wrap"><div class="ph">🏆</div></div>`;
     const badge=isMineWc?'<span class="qcard-badge badge-mine">내 월드컵</span>':'';
-    return `<div class="qcard" onclick="startWC('${w.id}')">${thumb}${badge}<div class="qcbody"><div class="qcttl">${esc(w.title)}</div><div class="qcdesc">${esc(w.description||'')}</div><div class="qcmeta"><span class="qctag">${esc(w.category||'기타')}</span><span>·</span><span>${roundName}</span><span>·</span><span>▶ ${w.plays||0}회</span></div></div></div>`;
+    return `<div class="qcard" onclick="openWcDetail('${w.id}')">${thumb}${badge}<div class="qcbody"><div class="qcttl">${esc(w.title)}</div><div class="qcdesc">${esc(w.description||'')}</div><div class="qcmeta"><span class="qctag">${esc(w.category||'기타')}</span><span>·</span><span>${roundName}</span><span>·</span><span>▶ ${w.plays||0}회</span></div></div></div>`;
   }).join('');
 }
 
+async function openWcDetail(id){
+  const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
+  if(!rows||!rows.length){toast('불러오기 실패');return;}
+  wcCurWC=rows[0];
+  const w=wcCurWC;
+  const cnt=(w.items||[]).length;
+  // 썸네일
+  const tb=document.getElementById('wc-det-thumb-box');
+  const ti=document.getElementById('wc-det-thumb-img');
+  if(w.thumb){ti.src=w.thumb;tb.style.display='';}
+  else{tb.style.display='none';}
+  document.getElementById('wc-det-cat').textContent=w.category||'기타';
+  document.getElementById('wc-det-ttl').textContent=w.title||'';
+  document.getElementById('wc-det-meta').textContent=`▶ ${w.plays||0}회 · ${cnt}개 항목 · by ${w.owner_nickname||''}`;
+  document.getElementById('wc-det-desc').textContent=w.description||'';
+  // 강 선택 버튼
+  const btns=document.getElementById('wc-round-btns');
+  const rounds=[];
+  let r=4;
+  while(r<=cnt){rounds.push(r);r*=2;}
+  wcSelRound=cnt; // 기본값: 전체
+  btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')
+    +`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
+  showScreen('wc-detail');
+  setPageMeta(w.title,'');
+}
+let wcSelRound=4;
+function selWcRound(btn,n){wcSelRound=n;document.querySelectorAll('#wc-round-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
+async function startWCPlay(){
+  const w=wcCurWC;
+  const items=[...(w.items||[])];
+  // 셔플
+  for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
+  wcItems=items.slice(0,wcSelRound);
+  wcRounds=[wcItems];wcRoundIdx=0;wcMatchIdx=0;wcWinners=[];
+  // plays 증가
+  sbUpdate('worldcups',`id=eq.${w.id}`,{plays:(w.plays||0)+1}).catch(()=>{});
+  showScreen('wc-battle');
+  renderWCBattle();
+}
 async function startWC(id){
   const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
   if(!rows||!rows.length){toast('불러오기 실패');return;}
