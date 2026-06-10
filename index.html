@@ -1225,6 +1225,39 @@ async function goMyWC(){
     </div>`;
   }).join('');
 }
+async function editMyWC(id){
+  if(!currentUser){toast('로그인이 필요해요');return;}
+  const rows=await sbSelect('worldcups','select=*&id=eq.'+id).catch(()=>[]);
+  if(!rows||!rows.length){toast('불러오기 실패');return;}
+  const w=rows[0];
+  wcEditId=w.id;
+  wcMakeItems=[...(w.items||[])];
+  wcMakeType=w.item_type||'image';
+  wcMakeCat=w.category||'기타';
+  wcThumb=w.thumb||null;
+  // 폼 채우기
+  document.getElementById('wc-ttl').value=w.title||'';
+  document.getElementById('wc-desc').value=w.description||'';
+  document.getElementById('wc-private').checked=!!w.is_private;
+  document.getElementById('wc-pw-row').classList.toggle('hidden',!w.is_private);
+  // 썸네일
+  if(w.thumb){
+    const p=document.getElementById('wc-thumb-prev');p.src=w.thumb;p.style.display='block';
+    document.getElementById('wc-thumb-ut').textContent='✅ 현재 썸네일';
+  }
+  // 탭 전환
+  document.querySelectorAll('#screen-wc-maker .tc').forEach(b=>b.classList.toggle('on',b.dataset.t===wcMakeType));
+  wcTypeChanged(wcMakeType);
+  renderWcCatPick();
+  // 카테고리 선택
+  setTimeout(()=>document.querySelectorAll('#wc-cat-pick .chip').forEach(b=>b.classList.toggle('on',b.textContent===wcMakeCat)),50);
+  renderWcMakeList();
+  document.getElementById('wc-maker-title').textContent='🐾 월드컵 수정';
+  document.getElementById('wc-pub-btn').textContent='💾 수정 완료';
+  stopAudio();clearTimer();killVideoIframe();
+  showScreen('wc-maker');
+  toast('수정 후 저장하세요');
+}
 async function deleteMyWC(id){
   if(!confirm('이 월드컵을 삭제할까요?'))return;
   await sbDelete('worldcups',`id=eq.${id}`);
@@ -1381,7 +1414,6 @@ async function wcChoose(idx){
   const isLastRound=isRoundEnd&&wcWinners.length===1;
 
   // 300ms 후 승자를 중앙으로 크게
-  await new Promise(res=>setTimeout(res,300));
   showWcCenterStage(winner, isRoundEnd, isLastRound, stats);
 }
 let wcPendingNext=null;
@@ -1525,16 +1557,19 @@ function renderWcMakeList(){
 }
 function wcRemoveItem(i){wcMakeItems.splice(i,1);renderWcMakeList();}
 function wcAddItem(){
-  // 모달 열기
   wcItemImgData=null;
   document.getElementById('wc-item-name').value='';
-  document.getElementById('wc-item-img-file').value='';
-  document.getElementById('wc-item-yt').value='';
-  document.getElementById('wc-item-img-prev').style.display='none';
-  document.getElementById('wc-item-img-ut').textContent='클릭하거나 드래그';
-  document.getElementById('wc-ytprev').style.display='none';
-  document.getElementById('wc-ytif').src='';
-  wcTypeChanged(wcMakeType); // 현재 타입에 맞게
+  const imgFile=document.getElementById('wc-item-img-file');if(imgFile)imgFile.value='';
+  const ytInp=document.getElementById('wc-item-yt');if(ytInp)ytInp.value='';
+  const imgPrev=document.getElementById('wc-item-img-prev');if(imgPrev)imgPrev.style.display='none';
+  const imgUt=document.getElementById('wc-item-img-ut');if(imgUt)imgUt.textContent='클릭하거나 드래그';
+  const ytprev=document.getElementById('wc-ytprev');if(ytprev)ytprev.style.display='none';
+  const ytif=document.getElementById('wc-ytif');if(ytif)ytif.src='';
+  // 현재 타입에 따라 영역 전환
+  const imgArea=document.getElementById('wc-item-img-area');
+  const vidArea=document.getElementById('wc-item-vid-area');
+  if(imgArea)imgArea.style.display=wcMakeType==='image'?'':'none';
+  if(vidArea)vidArea.style.display=wcMakeType==='video'?'':'none';
   document.getElementById('modal-wc-item').classList.remove('hidden');
 }
 async function wcSaveItem(){
@@ -1544,11 +1579,13 @@ async function wcSaveItem(){
   if(wcMakeType==='image'){
     if(!wcItemImgData){toast('이미지를 선택해주세요');return;}
     item.image=wcItemImgData;
-  } else {
+  } else if(wcMakeType==='video'){
     const yt=document.getElementById('wc-item-yt').value.trim();
     const ytId=extractYT(yt);
     if(!ytId){toast('유효한 유튜브 URL을 입력해주세요');return;}
     item.ytId=ytId;
+  } else {
+    toast('항목 유형을 선택해주세요');return;
   }
   wcMakeItems.push(item);
   document.getElementById('modal-wc-item').classList.add('hidden');
@@ -1572,7 +1609,7 @@ async function wcPublish(){
     id,title,
     description:document.getElementById('wc-desc').value.trim(),
     category,item_type:wcMakeType,items:wcMakeItems,thumb,
-    is_private:isPrivate,quiz_password:quizPw,
+    is_private:isPrivate,
     plays:existing.plays||0,win_stats:existing.win_stats||{},
     created_at:existing.created_at||Date.now(),
     owner_id:currentUser.id,owner_nickname:currentUser.nickname
