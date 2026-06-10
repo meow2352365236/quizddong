@@ -321,14 +321,17 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 .wc-card-ttl{font-weight:700;font-size:14px;margin-bottom:4px}
 .wc-card-meta{font-size:12px;color:var(--text3)}
 /* 대결 화면 */
-.wc-battle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:20px;min-height:60vh}
-.wc-round-info{font-size:13px;color:var(--text3);text-align:center;font-weight:600}
-.wc-vs-wrap{display:flex;gap:20px;width:100%;max-width:900px}
-.wc-item-btn{flex:1;background:var(--bg2);border:2.5px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:all .2s;text-align:center}
-.wc-item-btn:hover{border-color:var(--accent);transform:scale(1.02);box-shadow:0 8px 32px rgba(109,79,194,.3)}
-.wc-item-img{width:100%;aspect-ratio:4/3;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:80px}
-.wc-item-name{padding:16px 12px;font-weight:700;font-size:18px}
-.wc-vs-badge{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:var(--accent);flex-shrink:0;width:40px}
+.wc-battle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 0;gap:20px}
+.wc-round-info{font-size:14px;color:var(--text3);text-align:center;font-weight:600;margin-bottom:4px}
+.wc-vs-wrap{display:flex;gap:24px;width:100%;max-width:1100px}
+.wc-item-btn{flex:1;background:var(--bg2);border:3px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:all .25s;text-align:center}
+.wc-item-btn:hover{border-color:var(--accent);transform:scale(1.03);box-shadow:0 12px 40px rgba(109,79,194,.4)}
+.wc-item-btn.winner{border-color:#ffdd00;box-shadow:0 0 40px rgba(255,221,0,.5);transform:scale(1.05);animation:wc-win .4s ease}
+.wc-item-btn.loser{opacity:0.3;transform:scale(0.95);transition:all .4s}
+@keyframes wc-win{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1.05)}}
+.wc-item-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:100px}
+.wc-item-name{padding:20px 16px;font-weight:800;font-size:22px}
+.wc-vs-badge{display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:var(--accent);flex-shrink:0;width:56px}
 /* 결과 */
 .wc-result{text-align:center;padding:30px 20px}
 .wc-winner-img{width:180px;height:180px;object-fit:cover;border-radius:var(--rl);margin:0 auto 16px;display:block;border:3px solid var(--accent)}
@@ -1320,7 +1323,7 @@ function renderWCBattle(){
   function itemHtml(item,idx){
     let media='';
     if(wcCurWC.item_type==='video'&&item.ytId){
-      media=`<iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0" style="width:100%;aspect-ratio:16/9;border:none" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
+      media=`<iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0" style="width:100%;aspect-ratio:16/9;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
     } else if(item.image){
       media=`<img src="${item.image}" style="width:100%;aspect-ratio:1/1;object-fit:cover" alt="">`;
     } else {
@@ -1357,11 +1360,19 @@ async function wcChoose(idx){
   stats[winner.name]=(stats[winner.name]||0)+1;
   wcCurWC.win_stats=stats;
 
+  // 선택 애니메이션
+  const btns=document.querySelectorAll('.wc-item-btn');
+  if(btns[idx])btns[idx].classList.add('winner');
+  if(btns[1-idx])btns[1-idx].classList.add('loser');
+
   wcMatchIdx++;
-  if(wcMatchIdx*2>=round.length){
-    // 라운드 종료
-    if(wcWinners.length===1){
-      // 우승자 결정
+  const isRoundEnd=wcMatchIdx*2>=round.length;
+  const isLastRound=isRoundEnd&&wcWinners.length===1;
+
+  await new Promise(res=>setTimeout(res,isLastRound?700:500));
+
+  if(isRoundEnd){
+    if(isLastRound){
       await sbUpdate('worldcups',`id=eq.${wcCurWC.id}`,{win_stats:stats}).catch(()=>{});
       showWCResult(wcWinners[0]);
       return;
