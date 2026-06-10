@@ -433,16 +433,25 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 <!-- WORLDCAT HOME -->
 <div class="screen" id="screen-wc-home">
-  <div class="wrap" style="max-width:900px;padding-top:16px">
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-      <input type="text" id="wc-search" class="inp" placeholder="🔍 월드컵 검색..." style="flex:1;min-width:160px" oninput="renderWcGrid()" autocomplete="off">
+  <div class="home-wrap">
+    <div class="search-bar">
+      <input type="text" id="wc-search" placeholder="🔍 월드컵 검색..." oninput="renderWcGrid()" autocomplete="off">
       <button class="btn btn-acc btn-sm" onclick="goWcMaker()">+ 만들기</button>
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px" id="wc-cat-btns"></div>
-    <div id="wc-lcnt" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+    <div class="cat-row" id="wc-cat-btns"></div>
+    <div class="lcnt" id="wc-lcnt"></div>
     <div class="wc-grid" id="wc-grid">
       <div style="color:var(--text3);text-align:center;padding:40px;grid-column:1/-1">불러오는 중...</div>
     </div>
+  </div>
+</div>
+
+<!-- MY WORLDCUP -->
+<div class="screen" id="screen-mywc">
+  <div class="wrap">
+    <button class="back-btn" onclick="goWcHome()">← 홈으로</button>
+    <h2 style="font-size:18px;font-weight:800;margin-bottom:16px">🐾 내 월드컵</h2>
+    <div id="mywc-list"></div>
   </div>
 </div>
 
@@ -888,8 +897,8 @@ function updateNavAuth(){
   const accs=document.getElementById('account-status');
   if(currentUser){
     const lv=currentUser.level||getLevel(currentUser.exp||0);
-    area.innerHTML=`<span class="nav-user" onclick="goStat()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="goMyQuiz()">내 퀴즈</button>`;
-    if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="goMyQuiz()">📋 내 퀴즈 보기</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
+    area.innerHTML=`<span class="nav-user" onclick="goStat()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="wcMode==='worldcat'?goMyWC():goMyQuiz()">${wcMode==='worldcat'?'내 월드컵':'내 퀴즈'}</button>`;
+    if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="wcMode==='worldcat'?goMyWC():goMyQuiz()">📋 ${wcMode==='worldcat'?'내 월드컵 보기':'내 퀴즈 보기'}</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
     if(accs)accs.textContent=`로그인됨: ${currentUser.nickname}`;
   } else {
     area.innerHTML=`<button class="nbtn" onclick="goAuth()">로그인 / 가입</button>`;
@@ -1105,6 +1114,34 @@ function toggleSite(){
 }
 
 let wcAllData=[],wcActiveCat='전체';
+async function goMyWC(){
+  if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
+  stopAudio();clearTimer();killVideoIframe();showScreen('mywc');
+  const rows=await sbSelect('worldcups',`select=*&owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]);
+  const list=document.getElementById('mywc-list');
+  if(!rows||!rows.length){
+    list.innerHTML='<div class="empty"><div class="ei">📭</div><p>아직 만든 월드컵이 없어요.<br>첫 번째로 만들어보세요!</p></div>';return;
+  }
+  list.innerHTML=rows.map(w=>{
+    const thumb=w.thumb?`<img class="myq-thumb" src="${w.thumb}" alt="">`:`<div class="myq-thumb">🏆</div>`;
+    const cnt=(w.items||[]).length;
+    return `<div class="myq-item">${thumb}
+      <div class="myq-body">
+        <div class="myq-ttl">${esc(w.title)}</div>
+        <div class="myq-meta">${cnt}강 · ▶ ${w.plays||0}회 · ${w.category||'기타'}</div>
+      </div>
+      <div class="myq-actions">
+        <button class="btn btn-sm" onclick="startWC('${w.id}')">▶ 시작</button>
+        <button class="btn btn-sm btn-red" onclick="deleteMyWC('${w.id}')">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function deleteMyWC(id){
+  if(!confirm('이 월드컵을 삭제할까요?'))return;
+  await sbDelete('worldcups',`id=eq.${id}`);
+  toast('삭제됐어요');goMyWC();
+}
 async function goWcHome(){
   stopAudio();clearTimer();killVideoIframe();
   showScreen('wc-home');setPageMeta('월드캣','/worldcat');
