@@ -1221,18 +1221,12 @@ function renderWcGrid(){
   grid.innerHTML=data.map(w=>{
     const isMineWc=currentUser&&w.owner_id===currentUser.id;
     const cnt=(w.items||[]).length;
-    const roundName=cnt>=128?'128강':cnt>=64?'64강':cnt>=32?'32강':cnt>=16?'16강':cnt>=8?'8강':cnt>=4?'4강':'토너먼트';
+    const roundName=cnt>=128?'128강':cnt>=64?'64강':cnt>=32?'32강':cnt>=16?'16강':cnt>=8?'8강':'4강';
     const thumb=w.thumb
-      ?`<div class="qthumb-wrap${isMineWc?'':''}"><img src="${w.thumb}" alt="">${isMineWc?'<span class="qcard-badge badge-mine">내 월드컵</span>':''}</div>`
-      :`<div class="qthumb-wrap">${isMineWc?'<span class="qcard-badge badge-mine">내 월드컵</span>':''}<div class="ph">🏆</div></div>`;
-    return `<div class="qcard" onclick="startWC('${w.id}')">
-      ${thumb}
-      <div class="qinfo">
-        <div class="qttl">${esc(w.title)}</div>
-        <div class="qdesc">${esc(w.description||'')}</div>
-        <div class="qmeta"><span class="qcat">${esc(w.category||'기타')}</span> · ${roundName} · ▶ ${w.plays||0}회</div>
-      </div>
-    </div>`;
+      ?`<div class="qthumb-wrap"><img src="${w.thumb}" alt=""></div>`
+      :`<div class="qthumb-wrap"><div class="ph">🏆</div></div>`;
+    const badge=isMineWc?'<span class="qcard-badge badge-mine">내 월드컵</span>':'';
+    return `<div class="qcard" onclick="startWC('${w.id}')">${thumb}${badge}<div class="qcbody"><div class="qcttl">${esc(w.title)}</div><div class="qcdesc">${esc(w.description||'')}</div><div class="qcmeta"><span class="qctag">${esc(w.category||'기타')}</span><span>·</span><span>${roundName}</span><span>·</span><span>▶ ${w.plays||0}회</span></div></div></div>`;
   }).join('');
 }
 
