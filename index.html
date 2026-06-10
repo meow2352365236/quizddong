@@ -433,14 +433,16 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 <!-- WORLDCAT HOME -->
 <div class="screen" id="screen-wc-home">
-  <div class="home-wrap">
-    <div class="search-bar">
-      <input type="text" id="wc-search" placeholder="월드컵 검색어를 입력하세요." oninput="renderWcGrid()" autocomplete="off">
-      <button class="btn btn-acc btn-sm" style="margin-left:8px" onclick="goWcMaker()">+ 만들기</button>
-    </div>
-    <div class="cat-row" id="wc-cat-btns"></div>
-    <div class="grid-hd">
-      <div class="lcnt" id="wc-lcnt"></div>
+  <div class="hero"><div class="hero-in">
+    <div class="sbar"><input type="text" id="wc-search" placeholder="월드컵 검색어를 입력하세요." oninput="renderWcGrid()" autocomplete="off"><button onclick="renderWcGrid()">🔍</button></div>
+    <div class="cats" id="wc-cat-btns"></div>
+  </div></div>
+  <div class="page">
+    <div class="lh"><div class="lhc" id="wc-lcnt"></div>
+      <div class="sorts">
+        <button class="sort on" onclick="wcSetSort(this,'new')">최신순</button>
+        <button class="sort" onclick="wcSetSort(this,'plays')">인기순</button>
+      </div>
     </div>
     <div class="grid" id="wc-grid">
       <div style="color:var(--text3);text-align:center;padding:40px;grid-column:1/-1">불러오는 중...</div>
@@ -476,7 +478,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 <div class="screen" id="screen-wc-maker">
   <div class="mk-wrap">
     <button class="back-btn" onclick="goWcHome()">← 취소</button>
-    <div class="mk-hero" style="background:linear-gradient(135deg,#e91e8c,#ff6b6b)">
+    <div class="mk-hero">
       <h1 id="wc-maker-title">🐾 월드컵 만들기</h1>
       <p>이상형 월드컵을 만들고 공유해보세요.</p>
     </div>
@@ -899,14 +901,17 @@ function updateNavAuth(){
   const accs=document.getElementById('account-status');
   if(currentUser){
     const lv=currentUser.level||getLevel(currentUser.exp||0);
-    area.innerHTML=`<span class="nav-user" onclick="goStat()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" onclick="wcMode==='worldcat'?goMyWC():goMyQuiz()">${wcMode==='worldcat'?'내 월드컵':'내 퀴즈'}</button>`;
-    if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="wcMode==='worldcat'?goMyWC():goMyQuiz()">📋 ${wcMode==='worldcat'?'내 월드컵 보기':'내 퀴즈 보기'}</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
+    area.innerHTML=`<span class="nav-user" onclick="goStat()" style="cursor:pointer" title="내 스탯 보기">👤 ${esc(currentUser.nickname)}${isAdmin?' <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;vertical-align:middle">관리자</span>':''}${getLevelBadge(lv)}<span style="font-size:11px;color:var(--text3);margin-left:6px">${currentUser.coins||0}💰</span></span><button class="nbtn" id="my-content-btn" onclick="wcMode==='worldcat'?goMyWC():goMyQuiz()">내 퀴즈</button>`;
+    if(sbns)sbns.innerHTML=`<button class="btn btn-full" style="margin-bottom:8px;justify-content:center" onclick="wcMode==='worldcat'?goMyWC():goMyQuiz()">📋 내 퀴즈 보기</button><button class="btn btn-full" style="justify-content:center" onclick="logout()">로그아웃</button>`;
     if(accs)accs.textContent=`로그인됨: ${currentUser.nickname}`;
   } else {
     area.innerHTML=`<button class="nbtn" onclick="goAuth()">로그인 / 가입</button>`;
     if(sbns)sbns.innerHTML=`<button class="btn btn-acc btn-full" style="justify-content:center" onclick="goAuth()">로그인 / 가입</button>`;
     if(accs)accs.textContent='로그인하지 않음';
   }
+  // wcMode에 따라 nav 버튼 텍스트 동기화
+  const _mb=document.getElementById('my-content-btn');
+  if(_mb)_mb.textContent=wcMode==='worldcat'?'내 월드컵':'내 퀴즈';
 }
 function goAuth(){stopAudio();clearTimer();authMode='login';document.getElementById('auth-nick').value='';document.getElementById('auth-pw').value='';document.getElementById('auth-pw2').value='';document.getElementById('auth-err').classList.remove('show');document.getElementById('auth-pw2-wrap').style.display='none';document.getElementById('auth-ttl').textContent='로그인';document.getElementById('auth-submit-btn').textContent='로그인';document.getElementById('auth-switch').innerHTML='계정이 없으신가요? <a onclick="toggleAuthMode()">회원가입</a>';showScreen('auth');}
 
@@ -1092,6 +1097,8 @@ function toggleSite(){
     document.getElementById('site-switch-btn').style.borderColor='#e91e8c';
     document.getElementById('maker-btn').textContent='+ 월드컵 만들기';
     document.getElementById('maker-btn').onclick=goWcMaker;
+    const mb=document.getElementById('my-content-btn');if(mb)mb.textContent='내 월드컵';
+    const mcb=document.getElementById('my-content-btn');if(mcb)mcb.textContent='내 월드컵';
     // 공지바 숨기기 (퀴즈캣 전용)
     const nb=document.getElementById('update-log-bar');if(nb)nb.style.display='none';
     goWcHome();
@@ -1111,10 +1118,19 @@ function toggleSite(){
     document.getElementById('site-switch-btn').style.borderColor='var(--border)';
     document.getElementById('maker-btn').textContent='+ 퀴즈 만들기';
     document.getElementById('maker-btn').onclick=goMaker;
+    const mb2=document.getElementById('my-content-btn');if(mb2)mb2.textContent='내 퀴즈';
+    const mcb2=document.getElementById('my-content-btn');if(mcb2)mcb2.textContent='내 퀴즈';
     goHome();
   }
 }
 
+let wcActiveSort='new';
+function wcSetSort(btn,s){
+  wcActiveSort=s;
+  document.querySelectorAll('#screen-wc-home .sort').forEach(b=>b.classList.toggle('on',b===btn));
+  wcAllData.sort((a,b)=>s==='plays'?(b.plays||0)-(a.plays||0):(b.created_at||0)-(a.created_at||0));
+  renderWcGrid();
+}
 let wcAllData=[],wcActiveCat='전체';
 async function goMyWC(){
   if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
@@ -1147,6 +1163,7 @@ async function deleteMyWC(id){
 async function goWcHome(){
   stopAudio();clearTimer();killVideoIframe();
   showScreen('wc-home');setPageMeta('월드캣','/worldcat');
+  updateNavAuth();  // nav 버튼 동기화
   // 카테고리 버튼
   const cats=['전체', '아이돌', '음식', '동물', '게임', '영화', '음악', '스포츠', '기타'];
   const catEl=document.getElementById('wc-cat-btns');
@@ -1159,6 +1176,8 @@ function renderWcGrid(){
   const q=(document.getElementById('wc-search')||{}).value||'';
   let data=wcAllData.filter(w=>wcActiveCat==='전체'||(w.category||'기타')===wcActiveCat);
   if(q)data=data.filter(w=>w.title&&w.title.toLowerCase().includes(q.toLowerCase()));
+  if(wcActiveSort==='plays')data.sort((a,b)=>(b.plays||0)-(a.plays||0));
+  else data.sort((a,b)=>(b.created_at||0)-(a.created_at||0));
   const grid=document.getElementById('wc-grid');
   const lcnt=document.getElementById('wc-lcnt');
   if(lcnt)lcnt.innerHTML=`월드컵 <b>${data.length}</b>개`;
