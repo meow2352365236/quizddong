@@ -2506,18 +2506,20 @@ function useWcCmt(id){
   const key='wc_cmt_'+id+'_'+today;
   localStorage.setItem(key,String(parseInt(localStorage.getItem(key)||'0')+1));
 }
+function getWcCommentsLocal(wid){
+  try{return JSON.parse(localStorage.getItem('wc_cmts_'+wid)||'[]');}catch(e){return [];}
+}
+function saveWcCommentsLocal(wid,cl){
+  try{localStorage.setItem('wc_cmts_'+wid,JSON.stringify(cl));}catch(e){}
+}
 async function getWcComments(wid){
-  // wc_comments 테이블 시도, 없으면 worldcups.comments 컬럼 fallback
+  // wc_comments 테이블 먼저 시도
   try{
     const rows=await sbSelect('wc_comments',`select=*&wc_id=eq.${wid}&order=created_at.desc`);
-    return rows||[];
-  }catch(e){
-    try{
-      const rows=await sbSelect('worldcups',`select=comments&id=eq.${wid}`);
-      const cl=(rows&&rows[0]&&rows[0].comments)||[];
-      return cl.map((r,i)=>({id:i,nickname:r.nick||r.nickname||'?',content:r.text||r.content||'',created_at:r.time||r.created_at||0}));
-    }catch(e2){return [];}
-  }
+    if(rows&&rows.length){return rows;}
+  }catch(e){}
+  // localStorage fallback
+  return getWcCommentsLocal(wid);
 }
 async function loadWcComments(wid){
   const wrap=document.getElementById('wc-det-cmt-wrap');if(!wrap)return;
@@ -2547,16 +2549,15 @@ async function postWcComment(wid){
   const nick=n.value.trim()||'익명',txt=t.value.trim();
   if(!txt){toast('댓글 내용을 입력해주세요');return;}
   if(getWcCmtLeft(wid)<=0){toast('오늘 댓글 한도 도달');return;}
-  try{
-    await sbInsert('wc_comments',{wc_id:wid,nickname:nick,content:txt,created_at:Date.now()});
-  }catch(e){
-    // wc_comments 없으면 worldcups.comments fallback
-    try{
-      const rows=await sbSelect('worldcups',`select=comments&id=eq.${wid}`).catch(()=>[]);
-      const cl=(rows&&rows[0]&&rows[0].comments)||[];
-      cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR')});
-      await sbUpdate('worldcups',`id=eq.${wid}`,{comments:cl}).catch(()=>{});
-    }catch(e2){}
+  const newCmt={wc_id:wid,nickname:nick,content:txt,created_at:Date.now()};
+  // wc_comments 테이블 시도
+  let saved=false;
+  try{await sbInsert('wc_comments',newCmt);saved=true;}catch(e){}
+  // 실패 시 localStorage에 저장
+  if(!saved){
+    const cl=getWcCommentsLocal(wid);
+    cl.unshift({...newCmt,id:'local_'+Date.now()});
+    saveWcCommentsLocal(wid,cl);
   }
   useWcCmt(wid);t.value='';
   loadWcComments(wid);
