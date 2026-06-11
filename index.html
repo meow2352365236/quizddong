@@ -1271,16 +1271,13 @@ function renderWcGrid(){
 }
 
 async function openWcDetail(id){
-  // ⚡ 1. 즉시 화면 전환 (체감 속도 유지)
-  showScreen('wc-detail');
-  
-  // 2. 서버에서 월드컵 정보 불러오기
+  // 1. 퀴즈캣과 완벽하게 동일한 순서로 데이터 패치 진행
   const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
   if(!rows||!rows.length){toast('불러오기 실패');return;}
   wcCurWC=rows[0];
   const w=wcCurWC;
   
-  // 💡 [정밀 수정] 텍스트 파일 안의 구조를 보니, w.items가 문자열(String)로 저장되어 있을 수 있어서 안전하게 파싱합니다.
+  // 데이터 배열 안전하게 정렬
   let itemsArray = [];
   if (w.items) {
     if (typeof w.items === 'string') {
@@ -1291,18 +1288,18 @@ async function openWcDetail(id){
   }
   const cnt = itemsArray.length;
   
-  // 3. 퀴즈캣 방식을 완벽하게 떼어온 대문 썸네일 노출 로직
+  // 2. [퀴즈캣 핵심 이식] 대문 썸네일 노출 로직 그대로 매칭
   const tb=document.getElementById('wc-det-thumb-box');
   const ti=document.getElementById('wc-det-thumb-img');
   
-  // 월드캣 생성 시 등록된 대표 이미지(cover_img나 thumb) 확인
+  // 퀴즈캣이 'cover_img' 데이터를 최우선으로 가져오던 방식 적용
   const mainThumb = w.cover_img || w.thumb;
   
   if(mainThumb){
     ti.src = mainThumb;
     tb.style.display='';
   } else if(itemsArray.length > 0){
-    // 대표 이미지가 비어있다면, 퀴즈캣처럼 첫 번째 항목의 이미지를 가져옴
+    // 대표 이미지가 따로 설정 안 됐다면 첫 번째 항목의 이미지 자동 매칭
     const firstItem = itemsArray[0];
     if(firstItem.image){
       ti.src = firstItem.image;
@@ -1311,7 +1308,7 @@ async function openWcDetail(id){
       ti.src = firstItem.img;
       tb.style.display='';
     } else if(firstItem.ytId){
-      // 유튜브 항목일 경우 썸네일 자동 추출
+      // 첫 항목이 유튜브 영상일 때의 공석 방지 썸네일
       ti.src = `https://img.youtube.com/vi/${firstItem.ytId}/mqdefault.jpg`;
       tb.style.display='';
     } else {
@@ -1321,13 +1318,13 @@ async function openWcDetail(id){
     tb.style.display='none';
   }
   
-  // 4. 텍스트 정보 화면에 주입
+  // 3. 텍스트 정보 이름표 매칭 주입
   document.getElementById('wc-det-cat').textContent=w.category||'기타';
   document.getElementById('wc-det-ttl').textContent=w.title||'';
   document.getElementById('wc-det-meta').textContent=`▶ ${w.plays||0}회 · ${cnt}개 항목 · by ${w.owner_nickname||''}`;
   document.getElementById('wc-det-desc').textContent=w.description||'';
   
-  // 5. 강 선택 버튼 생성
+  // 4. 강 선택 버튼 활성화 시스템
   const btns=document.getElementById('wc-round-btns');
   const rounds=[];
   let r=4;
@@ -1341,6 +1338,8 @@ async function openWcDetail(id){
       +`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
   }
     
+  // 5. 모든 데이터 세팅이 완료되면 퀴즈캣 타이밍과 완벽하게 같게 화면 활성화
+  showScreen('wc-detail');
   setPageMeta(w.title,'');
 }
 
