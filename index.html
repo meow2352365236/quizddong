@@ -1180,6 +1180,13 @@ function toggleSite(){
     const mcb=document.getElementById('my-content-btn');if(mcb)mcb.textContent='내 월드컵';
     // 공지바 숨기기 (퀴즈캣 전용)
     const nb=document.getElementById('update-log-bar');if(nb)nb.style.display='none';
+    // 월드캣 전환 시 데이터 미리 로드 (빠른 화면 전환)
+    if(!wcAllData.length){
+      sbSelect('worldcups','select=*&order=created_at.desc').then(rows=>{
+        wcAllData=rows||[];
+        renderWcGrid();
+      }).catch(()=>{});
+    }
     goWcHome();
   } else {
     const nameEl=document.getElementById('site-name-text');
@@ -1247,10 +1254,13 @@ async function goWcHome(){
   const cats=['전체', '아이돌', '음식', '동물', '게임', '영화', '음악', '스포츠', '기타'];
   const catEl=document.getElementById('wc-cat-btns');
   if(catEl)catEl.innerHTML=wcCats.map(c=>`<button class="chip${c===wcActiveCat?' on':''}" onclick="wcSetCat('${c}')">${c}</button>`).join('');
-if(!wcAllData.length){
-  wcAllData=await sbSelect('worldcups','select=*&order=created_at.desc').catch(()=>[]);
-}
-renderWcGrid();
+  // 캐시 있으면 즉시 렌더, 없으면 fetch 후 렌더
+  if(wcAllData.length){
+    renderWcGrid();
+  } else {
+    wcAllData=await sbSelect('worldcups','select=*&order=created_at.desc').catch(()=>[]);
+    renderWcGrid();
+  }
 }
 function wcSetCat(c){wcActiveCat=c;const els=document.querySelectorAll('#wc-cat-btns .chip');els.forEach(b=>b.classList.toggle('on',b.textContent===c));renderWcGrid();}
 function renderWcGrid(){
@@ -1371,7 +1381,7 @@ async function openWcDetail(id){
   // 5. 모든 세팅이 완료되면 퀴즈캣의 타이밍과 동일하게 화면을 로드!
   // 내 월드컵이면 수정 버튼 표시
   const editBtn=document.getElementById('wc-det-edit-btn');
-  if(editBtn){const isMineWc3=currentUser&&w.owner_id===currentUser.id;editBtn.style.display=isMineWc3?'':'none';}
+  if(editBtn){const isMineWc3=currentUser&&w.owner_id===currentUser.id;editBtn.style.display=isMineWc3?'block':'none';}
   showScreen('wc-detail');
   setPageMeta(w.title,'');
 }
@@ -2789,22 +2799,19 @@ window.startWCPlay = function() {
   
   // 2. 월드컵 항목 랜덤으로 섞기 및 사용자가 선택한 강수(예: 16강, 32강)만큼 자르기
   itemsArray.sort(() => Math.random() - 0.5);
-  if (window.wcSelRound) {
-    itemsArray = itemsArray.slice(0, window.wcSelRound);
+  if (wcSelRound) {
+    itemsArray = itemsArray.slice(0, wcSelRound);
   }
 
-  // 3. 월드컵 진행을 위한 기본 변수들 초기화 (클로드가 짜둔 규칙에 맞춤)
-  window.wcRounds = [itemsArray];
-  window.wcRoundIdx = 0;
-  window.wcMatchIdx = 0;
-  window.wcWinners = [];
-  window.wcPendingNext = null;
+  // 3. 모듈 수준 변수에 직접 할당 (renderWCBattle이 읽는 변수와 동일)
+  wcRounds = [itemsArray];
+  wcRoundIdx = 0;
+  wcMatchIdx = 0;
+  wcWinners = [];
   
-  // 4. 월드컵 플레이 화면으로 넘어가고 첫 번째 매치 띄우기
+  // 4. 월드컵 배틀 화면으로 이동
   showScreen('wc-battle');
-  if (typeof renderWCBattle === 'function') {
-    renderWCBattle();
-  }
+  renderWCBattle();
 };
 
 function goSettings(){
