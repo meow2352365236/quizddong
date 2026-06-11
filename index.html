@@ -518,8 +518,8 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     <button class="back-btn" onclick="wcEditId?goWcHome():goWcHome()">← 돌아가기</button>
     <div class="mk-hero"><h1 id="wc-maker-title">🐾 월드컵 만들기</h1><p>이상형 월드컵을 만들고 공유해보세요.</p></div>
     <div class="card">
-      <div class="fl"><label>월드컵 제목 *</label><input type="text" id="wc-ttl" placeholder="예: 최애 아이돌 월드컵" maxlength="50"></div>
-      <div class="fl"><label>설명</label><textarea id="wc-desc" placeholder="월드컵에 대한 간단한 설명..."></textarea></div>
+      <div class="fl"><label>월드컵 제목 *</label><input type="text" id="wc-ttl" placeholder="예: 최애 아이돌 월드컵" maxlength="50" oninput="wcAutoSave()"></div>
+      <div class="fl"><label>설명</label><textarea id="wc-desc" placeholder="월드컵에 대한 간단한 설명..." oninput="wcAutoSave()"></textarea></div>
       <div class="fl"><label>카테고리</label><div class="cat-pick" id="wc-cat-pick"></div></div>
       <div class="fl" style="margin-bottom:0"><label>대표 썸네일</label>
         <div class="uzone" id="wc-thumb-zone">
@@ -581,7 +581,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     </div>
     
     <div id="wc-item-vid-area" class="fl" style="display:none">
-      <div class="fl"><label>유튜브 URL *</label><input type="text" id="wc-item-yt" placeholder="https://youtu.be/..." autocomplete="off"></div>
+      <div class="fl"><label>유튜브 URL *</label><input type="text" id="wc-item-yt" placeholder="https://youtu.be/..." autocomplete="off" oninput="prevWcItemYT()"></div>
       <div id="wc-ytprev" style="display:none;margin-top:6px" class="yt-prev-m"><div class="yr"><iframe id="wc-ytif" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe></div></div>
     </div>
     
@@ -1334,12 +1334,12 @@ function renderWcDetailUI(w){
   const tb=document.getElementById('wc-det-thumb-box');
   const ti=document.getElementById('wc-det-thumb-img');
   const mainThumb=w.thumb||w.cover_img;
-  if(mainThumb){ti.src=mainThumb;tb.style.display='';}
+  if(mainThumb){ti.src=mainThumb;tb.style.display='block';}
   else if(itemsArray.length>0){
     const fi=itemsArray[0];
-    if(fi.image){ti.src=fi.image;tb.style.display='';}
-    else if(fi.img){ti.src=fi.img;tb.style.display='';}
-    else if(fi.ytId){ti.src=`https://img.youtube.com/vi/${fi.ytId}/mqdefault.jpg`;tb.style.display='';}
+    if(fi.image){ti.src=fi.image;tb.style.display='block';}
+    else if(fi.img){ti.src=fi.img;tb.style.display='block';}
+    else if(fi.ytId){ti.src=`https://img.youtube.com/vi/${fi.ytId}/mqdefault.jpg`;tb.style.display='block';}
     else{tb.style.display='none';}
   } else{tb.style.display='none';}
   // 텍스트
@@ -1566,6 +1566,7 @@ function goWcMaker(){
   document.getElementById('wc-maker-title').textContent='🐾 월드컵 만들기';
   document.getElementById('wc-pub-btn').textContent='🚀 월드컵 등록';
   showScreen('wc-maker');
+  tryRestoreWcDraft();
 }
 async function startEditWcById(id){
   // 캐시에서 찾거나 직접 fetch
@@ -1592,7 +1593,7 @@ function startEditWc(){
   document.getElementById('wc-quiz-pw').value=w.quiz_password||'';
   if(w.thumb){
     document.getElementById('wc-thumb-prev').src=w.thumb;
-    document.getElementById('wc-thumb-prev').style.display='';
+    document.getElementById('wc-thumb-prev').style.display='block';
     document.getElementById('wc-thumb-ut').textContent='✅ 현재 썸네일 (변경하려면 새 파일 선택)';
     wcThumb=w.thumb;
   } else {
@@ -1619,6 +1620,7 @@ function startEditWc(){
   document.getElementById('wc-maker-title').textContent='✏️ 월드컵 수정';
   document.getElementById('wc-pub-btn').textContent='💾 수정 저장';
   showScreen('wc-maker');
+  tryRestoreWcDraft();
 }
 function renderWcCatPick(){
   const el=document.getElementById('wc-cat-pick');
@@ -1689,9 +1691,120 @@ async function wcSaveItem(){
   wcMakeItems.push(item);
   document.getElementById('modal-wc-item').classList.add('hidden');
   renderWcMakeList();
+  wcAutoSave(); // 항목 추가 시 자동저장
   toast('항목이 추가됐어요!');
 }
-async function wcPublish(){
+
+// ── 유튜브 미리보기 (항목 추가 모달) ──
+function prevWcItemYT(){
+  const url=document.getElementById('wc-item-yt').value;
+  const id=extractYT(url);
+  const prev=document.getElementById('wc-ytprev');
+  const fr=document.getElementById('wc-ytif');
+  if(id){
+    prev.style.display='block';
+    fr.src=`https://www.youtube.com/embed/${id}?rel=0&modestbranding=1`;
+  } else {
+    prev.style.display='none';
+    fr.src='';
+  }
+}
+
+// ══ 자동저장 (퀴즈 & 월드컵 제작 / 수정 중 이탈 방지) ══
+const AUTOSAVE_KEY_QUIZ='qbox_draft_quiz';
+const AUTOSAVE_KEY_WC='qbox_draft_wc';
+
+function wcAutoSave(){
+  try{
+    const draft={
+      editId:wcEditId||null,
+      title:document.getElementById('wc-ttl').value,
+      desc:document.getElementById('wc-desc').value,
+      cat:wcMakeCat,
+      type:wcMakeType,
+      isPrivate:document.getElementById('wc-private').checked,
+      pw:document.getElementById('wc-quiz-pw').value,
+      thumb:wcThumb||null,
+      items:wcMakeItems,
+      savedAt:Date.now()
+    };
+    localStorage.setItem(AUTOSAVE_KEY_WC,JSON.stringify(draft));
+  }catch(e){}
+}
+function quizAutoSave(){
+  try{
+    const draft={
+      editId:quizId_override||null,
+      title:document.getElementById('mk-ttl').value,
+      desc:document.getElementById('mk-desc').value,
+      cat:mkCat,
+      isPrivate:document.getElementById('mk-private').checked,
+      pw:document.getElementById('mk-quiz-pw').value,
+      thumb:mkThumb||null,
+      questions:mkQs,
+      savedAt:Date.now()
+    };
+    localStorage.setItem(AUTOSAVE_KEY_QUIZ,JSON.stringify(draft));
+  }catch(e){}
+}
+function clearWcDraft(){localStorage.removeItem(AUTOSAVE_KEY_WC);}
+function clearQuizDraft(){localStorage.removeItem(AUTOSAVE_KEY_QUIZ);}
+
+function tryRestoreWcDraft(){
+  try{
+    const raw=localStorage.getItem(AUTOSAVE_KEY_WC);
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    if(!d||!d.title)return;
+    const age=Math.round((Date.now()-d.savedAt)/60000);
+    const label=d.editId?'수정 중이던 월드컵':'작성 중이던 월드컵';
+    if(!confirm(`💾 ${label} 임시저장본이 있어요 (${age}분 전).\n이어서 작업할까요?\n(취소하면 임시저장이 삭제됩니다)`)){clearWcDraft();return;}
+    // 복원
+    wcEditId=d.editId||null;
+    document.getElementById('wc-ttl').value=d.title||'';
+    document.getElementById('wc-desc').value=d.desc||'';
+    wcMakeCat=d.cat||'기타';
+    wcMakeType=d.type||'image';
+    document.getElementById('wc-private').checked=!!d.isPrivate;
+    document.getElementById('wc-pw-row').classList.toggle('hidden',!d.isPrivate);
+    document.getElementById('wc-quiz-pw').value=d.pw||'';
+    if(d.thumb){wcThumb=d.thumb;const p=document.getElementById('wc-thumb-prev');p.src=d.thumb;p.style.display='block';document.getElementById('wc-thumb-ut').textContent='✅ 임시저장된 썸네일';}
+    wcMakeItems=d.items||[];
+    document.querySelectorAll('#screen-wc-maker .tc').forEach(b=>b.classList.toggle('on',b.dataset.t===wcMakeType));
+    wcTypeChanged(wcMakeType);
+    renderWcCatPick();
+    setTimeout(()=>{document.querySelectorAll('#wc-cat-pick .chip').forEach(b=>b.classList.toggle('on',b.textContent===wcMakeCat));},0);
+    renderWcMakeList();
+    document.getElementById('wc-maker-title').textContent=wcEditId?'✏️ 월드컵 수정':'🐾 월드컵 만들기';
+    document.getElementById('wc-pub-btn').textContent=wcEditId?'💾 수정 저장':'🚀 월드컵 등록';
+    toast('📂 임시저장본을 복원했어요!');
+  }catch(e){clearWcDraft();}
+}
+function tryRestoreQuizDraft(){
+  try{
+    const raw=localStorage.getItem(AUTOSAVE_KEY_QUIZ);
+    if(!raw)return;
+    const d=JSON.parse(raw);
+    if(!d||!d.title)return;
+    const age=Math.round((Date.now()-d.savedAt)/60000);
+    const label=d.editId?'수정 중이던 퀴즈':'작성 중이던 퀴즈';
+    if(!confirm(`💾 ${label} 임시저장본이 있어요 (${age}분 전).\n이어서 작업할까요?\n(취소하면 임시저장이 삭제됩니다)`)){clearQuizDraft();return;}
+    quizId_override=d.editId||null;
+    document.getElementById('mk-ttl').value=d.title||'';
+    document.getElementById('mk-desc').value=d.desc||'';
+    mkCat=d.cat||'기타';
+    document.getElementById('mk-private').checked=!!d.isPrivate;
+    document.getElementById('mk-pw-row').classList.toggle('hidden',!d.isPrivate);
+    document.getElementById('mk-quiz-pw').value=d.pw||'';
+    if(d.thumb){mkThumb=d.thumb;const p=document.getElementById('thumb-prev');p.src=d.thumb;p.style.display='block';document.getElementById('thumb-ut').textContent='✅ 임시저장된 썸네일';}
+    mkQs=d.questions||[];
+    renderMkList();renderCatPick();
+    document.getElementById('mk-hero-ttl').textContent=quizId_override?'✏️ 퀴즈 수정':'✏️ 퀴즈 만들기';
+    document.getElementById('mk-pub-btn').textContent=quizId_override?'💾 수정 완료':'🚀 퀴즈 등록하기';
+    toast('📂 임시저장본을 복원했어요!');
+  }catch(e){clearQuizDraft();}
+}
+
   const title=document.getElementById('wc-ttl').value.trim();
   if(!title){toast('제목을 입력해주세요');return;}
   const cnt=wcMakeItems.length;
@@ -1755,6 +1868,7 @@ async function wcPublish(){
 
   const wasEdit = !!wcEditId;
   toast(wasEdit?'✅ 월드컵이 수정됐어요!':'🎉 월드컵이 등록됐어요!');
+  clearWcDraft();
   wcEditId=null;
   wcAllData=[];  // 캐시 초기화
   setTimeout(goWcHome, 600);
@@ -2013,7 +2127,7 @@ async function submitPw(){
       const tb=document.getElementById('wc-det-thumb-box');
       const ti=document.getElementById('wc-det-thumb-img');
       const mainThumb=wc.thumb||wc.cover_img;
-      if(mainThumb){ti.src=mainThumb;tb.style.display='';}else{tb.style.display='none';}
+      if(mainThumb){ti.src=mainThumb;tb.style.display='block';}else{tb.style.display='none';}
       document.getElementById('wc-det-cat').textContent=wc.category||'기타';
       document.getElementById('wc-det-ttl').textContent=wc.title||'';
       document.getElementById('wc-det-meta').textContent=`▶ ${wc.plays||0}회 · ${cnt}개 항목 · by ${wc.owner_nickname||''}`;
@@ -2739,6 +2853,7 @@ async function startEditQuiz(id){
   const ht=document.getElementById('mk-hero-ttl');if(ht)ht.textContent='✏️ 퀴즈 수정';
   const pb=document.getElementById('mk-pub-btn');if(pb)pb.textContent='💾 수정 완료';
   showScreen('maker');
+  tryRestoreQuizDraft();
   toast('내용을 수정한 후 저장하세요');
 }
 async function goMyQuiz(){
@@ -2789,10 +2904,12 @@ function goMaker(){
   const pb=document.getElementById('mk-pub-btn');if(pb)pb.textContent='🚀 퀴즈 등록하기';
   const cn2=document.getElementById('mk-coin-notice');if(cn2)cn2.style.display='';
   showScreen('maker');
+  tryRestoreQuizDraft();
 }
 function handleThumb(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{mkThumb=ev.target.result;const p=document.getElementById('thumb-prev');p.src=mkThumb;p.style.display='block';document.getElementById('thumb-ut').textContent='✅ '+f.name;};r.readAsDataURL(f);}
 const BAD=['비속어','욕설'];
-document.getElementById('mk-ttl').addEventListener('input',function(){const h=document.getElementById('ttl-hint');if(this.value.length>0&&this.value.length<2)h.textContent='제목은 2자 이상';else if(BAD.some(b=>this.value.includes(b)))h.textContent='적절하지 않은 제목';else h.textContent='';});
+document.getElementById('mk-ttl').addEventListener('input',function(){const h=document.getElementById('ttl-hint');if(this.value.length>0&&this.value.length<2)h.textContent='제목은 2자 이상';else if(BAD.some(b=>this.value.includes(b)))h.textContent='적절하지 않은 제목';else h.textContent='';quizAutoSave();});
+document.getElementById('mk-desc').addEventListener('input',function(){quizAutoSave();});
 
 async function publishQuiz(){
   // 신규 퀴즈 제작 시 100코인 차감
@@ -2847,6 +2964,7 @@ async function publishQuiz(){
   await sbUpsert('quizzes',{id:quizId,title,description:desc,category:mkCat,thumb,thumb_emoji:'🎯',questions:finalQs,plays:existingData.plays,scores:existingData.scores,created_at:existingData.created_at,is_private:isPrivate,is_adult:isAdult,hide_answer:hideAnswer,owner_id:currentUser.id,owner_nickname:currentUser.nickname,quiz_password:quizPw,collaborators});
   }catch(e){toast('업로드 실패: '+e.message);return;}
   toast(quizId_override?'✅ 퀴즈가 수정됐어요!':'🎉 퀴즈가 등록됐어요!');
+  clearQuizDraft();
   if(quizId_override){const eid=quizId_override;quizId_override=null;setTimeout(()=>openDetail(eid),800);}else{setTimeout(goHome,800);}
 }
 function renderMkList(){
@@ -2854,7 +2972,7 @@ function renderMkList(){
   const list=document.getElementById('mk-qlist');if(!mkQs.length){list.innerHTML='';return;}
   list.innerHTML=mkQs.map((q,i)=>{const[pc,lbl]={image:['qip-img','📷 사진'],audio:['qip-aud','🎧 소리'],video:['qip-vid','🎬 영상']}[q.type];return`<div class="qitem"><div class="qino">${i+1}</div><div class="qibody"><span class="qipill ${pc}">${lbl}</span><div class="qiq">${esc(q.question)}</div><div class="qia">정답: ${esc(q.answer)}${q.timeLimit>0?' · ⏱'+q.timeLimit+'초':''}</div></div><button class="qdel" onclick="openEditQ(${i})">수정</button><button class="qdel" onclick="delQ(${i})">삭제</button></div>`;}).join('');
 }
-function delQ(i){mkQs.splice(i,1);renderMkList();}
+function delQ(i){mkQs.splice(i,1);renderMkList();quizAutoSave();}
 
 // ═══ MODAL ═══
 function renderAnswerChips(){document.getElementById('q-ans-chips').innerHTML=modalAnswers.map((a,i)=>`<span class="ans-chip">${esc(a)}<button onclick="removeAnsChip(${i})">×</button></span>`).join('');}
@@ -2950,8 +3068,8 @@ function saveQ(){
   }
   else if(qType==='audio'){const id=extractYT(document.getElementById('q-yt-aud').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-aud').value);q.endSec=ptime(document.getElementById('q-en-aud').value);q.maxPlays=parseInt(document.getElementById('q-aud-maxplays').value)||0;}
   else{const id=extractYT(document.getElementById('q-yt-vid').value);if(!id){toast('❗ 유효한 유튜브 링크를 입력해주세요');return;}q.ytId=id;q.startSec=ptime(document.getElementById('q-st-vid').value);q.endSec=ptime(document.getElementById('q-en-vid').value);q.maxPlays=parseInt(document.getElementById('q-vid-maxplays').value)||0;}
-  if(typeof editQIdx==='number'&&editQIdx>=0){mkQs[editQIdx]=q;editQIdx=-1;closeModal();renderMkList();toast('✅ 문제가 수정됐어요!');}
-  else{mkQs.push(q);closeModal();renderMkList();toast('✅ 문제가 추가됐어요!');}
+  if(typeof editQIdx==='number'&&editQIdx>=0){mkQs[editQIdx]=q;editQIdx=-1;closeModal();renderMkList();quizAutoSave();toast('✅ 문제가 수정됐어요!');}
+  else{mkQs.push(q);closeModal();renderMkList();quizAutoSave();toast('✅ 문제가 추가됐어요!');}
 }
 
 // ═══ SETTINGS + ADMIN TOGGLE BTN ═══
