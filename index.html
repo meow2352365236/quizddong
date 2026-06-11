@@ -1368,18 +1368,6 @@ async function openWcDetail(id){
   wcCurWC=rows[0];
   const w=wcCurWC;
 
-  // 비공개 접근 제한
-  const isMineWc2=currentUser&&w.owner_id===currentUser.id;
-  const isLockedWc=w.is_private&&!isMineWc2&&!isAdmin;
-  if(isLockedWc&&w.quiz_password){
-    wcPendingDetailId=w.id;
-    document.getElementById('pw-inp').value='';
-    document.getElementById('pw-err').style.display='none';
-    document.getElementById('modal-pw').classList.remove('hidden');
-    return;
-  }
-  if(isLockedWc&&!w.quiz_password){toast('비공개 월드컵이에요.');return;}
-
   // 비공개 체크
   const isMineWc2=currentUser&&w.owner_id===currentUser.id;
   if(w.is_private&&!isMineWc2&&!isAdmin){
