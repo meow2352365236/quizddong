@@ -1271,30 +1271,34 @@ function renderWcGrid(){
 }
 
 async function openWcDetail(id){
+  // ⚡ 1. 누르자마자 즉시 월드컵 상세 화면으로 먼저 이동! (한 박자 느린 체감 속도 완벽 해결)
+  showScreen('wc-detail');
+  
+  // 2. 화면이 먼저 부드럽게 켜진 상태에서 서버로부터 데이터를 가져옴
   const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
   if(!rows||!rows.length){toast('불러오기 실패');return;}
   wcCurWC=rows[0];
   const w=wcCurWC;
   const cnt=(w.items||[]).length;
   
-  // 썸네일 표시 정밀 보정 완료!
+  // 3. 썸네일 이미지 매칭 오류 수정 (image 및 유튜브 썸네일 완벽 대응)
   const tb=document.getElementById('wc-det-thumb-box');
   const ti=document.getElementById('wc-det-thumb-img');
   
   if(w.thumb){
-    // 월드컵 자체 대표 썸네일이 있으면 그것부터 보여주기
+    // 월드컵 자체 대표 썸네일이 수록되어 있다면 그것을 사용
     ti.src=w.thumb;
     tb.style.display='';
   } else if(w.items && w.items.length > 0){
-    // 대표 썸네일이 비어있다면 첫 번째 항목을 확인
+    // 대표 썸네일이 비어있다면, 첫 번째 항목을 검사하여 대문 이미지로 채워넣음
     const firstItem = w.items[0];
     
     if(firstItem.image){
-      // 1. 첫 번째 항목이 '이미지'라면 그 이미지 주소를 꽂아준다!
+      // 첫 번째 항목이 이미지 파일일 때 (.image 명칭 매칭)
       ti.src = firstItem.image;
       tb.style.display='';
     } else if(firstItem.ytId){
-      // 2. 첫 번째 항목이 '유튜브 영상'이라면 유튜브 고유 썸네일 주소를 만들어서 꽂아준다!
+      // 첫 번째 항목이 유튜브 영상일 때 자동으로 유튜브 고해상도 썸네일을 생성해서 연동
       ti.src = `https://img.youtube.com/vi/${firstItem.ytId}/mqdefault.jpg`;
       tb.style.display='';
     } else {
@@ -1304,20 +1308,21 @@ async function openWcDetail(id){
     tb.style.display='none';
   }
   
+  // 4. 나머지 텍스트 데이터 화면 이름표들에 주입
   document.getElementById('wc-det-cat').textContent=w.category||'기타';
   document.getElementById('wc-det-ttl').textContent=w.title||'';
   document.getElementById('wc-det-meta').textContent=`▶ ${w.plays||0}회 · ${cnt}개 항목 · by ${w.owner_nickname||''}`;
   document.getElementById('wc-det-desc').textContent=w.description||'';
   
-  // 강 선택 버튼
+  // 5. 강 선택 버튼 생성 시스템
   const btns=document.getElementById('wc-round-btns');
   const rounds=[];
   let r=4;
   while(r<=cnt){rounds.push(r);r*=2;}
-  wcSelRound=cnt; // 기본값: 전체
+  wcSelRound=cnt; 
   btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')
     +`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
-  showScreen('wc-detail');
+    
   setPageMeta(w.title,'');
 }
 
