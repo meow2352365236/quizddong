@@ -481,6 +481,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
         <div class="cfg-lbl">강 선택</div>
         <div class="cnt-btns" id="wc-round-btns"></div>
         <button class="btn btn-acc btn-full btn-lg" style="margin-top:14px" onclick="startWCPlay()">▶ 월드컵 시작하기</button>
+        <button id="wc-det-edit-btn" class="btn btn-full" style="margin-top:8px;display:none" onclick="startEditWc()">✏️ 월드컵 수정</button>
       </div>
     </div>
   </div>
@@ -503,8 +504,8 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 <!-- WORLDCAT RESULT -->
 <div class="screen" id="screen-wc-result">
-  <div class="wrap" style="max-width:600px">
-    <div class="wc-result" id="wc-result-content"></div>
+  <div class="wrap" style="max-width:600px;margin:0 auto;display:flex;justify-content:center">
+    <div class="wc-result" id="wc-result-content" style="width:100%"></div>
   </div>
 </div>
 
@@ -1150,7 +1151,9 @@ function renderThemeGrid(){const cur=localStorage.getItem(TK)||'warm';document.g
 // 월드캣 (이상형 월드컵) 시스템
 // ══════════════════════════════════════════════
 let wcMode='quiz'; // 'quiz' | 'worldcat'
-let wcItems=[],wcRounds=[],wcRoundIdx=0,wcMatchIdx=0,wcWinners=[],wcCurWC=null,wcEditId=null;
+let wcItems=[],wcRounds=[],wcRoundIdx=0,wcMatchIdx=0,wcWinners=[],wcCurWC=null,wcEditId=null,wcPendingDetailId=null;
+let wcSelRound=4;
+function selWcRound(btn,n){wcSelRound=n;document.querySelectorAll('#wc-round-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
 let wcMakeItems=[];
 
 function toggleSite(){
@@ -1256,19 +1259,28 @@ function renderWcGrid(){
   if(q)data=data.filter(w=>w.title&&w.title.toLowerCase().includes(q.toLowerCase()));
   if(wcActiveSort==='plays')data.sort((a,b)=>(b.plays||0)-(a.plays||0));
   else data.sort((a,b)=>(b.created_at||0)-(a.created_at||0));
+  // 비공개 카드: 내 것 아니면 하단 배치
+  data.sort((a,b)=>{
+    const ap=a.is_private&&!(currentUser&&a.owner_id===currentUser.id)&&!isAdmin;
+    const bp=b.is_private&&!(currentUser&&b.owner_id===currentUser.id)&&!isAdmin;
+    if(ap!==bp)return ap?1:-1;return 0;
+  });
   const grid=document.getElementById('wc-grid');
   const lcnt=document.getElementById('wc-lcnt');
   if(lcnt)lcnt.innerHTML=`월드컵 <b>${data.length}</b>개`;
   if(!data.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:52px 20px;color:var(--text3)"><div style="font-size:48px;margin-bottom:12px">🏆</div><p>조건에 맞는 월드컵이 없어요.</p></div>';return;}
   grid.innerHTML=data.map(w=>{
     const isMineWc=currentUser&&w.owner_id===currentUser.id;
+    const isLocked=w.is_private&&!isMineWc&&!isAdmin;
     const cnt=(w.items||[]).length;
     const roundName=cnt>=128?'128강':cnt>=64?'64강':cnt>=32?'32강':cnt>=16?'16강':cnt>=8?'8강':'4강';
+    const blurClass=isLocked?' blurred':'';
     const thumb=w.thumb
-      ?`<div class="qthumb-wrap"><img src="${w.thumb}" alt=""></div>`
-      :`<div class="qthumb-wrap"><div class="ph">🏆</div></div>`;
+      ?`<div class="qthumb-wrap${blurClass}"><img src="${w.thumb}" alt=""></div>`
+      :`<div class="qthumb-wrap${blurClass}"><div class="ph">🏆</div></div>`;
+    const lockOverlay=isLocked?`<div class="lock-overlay"><div class="lock-icon">🔒</div><div class="lock-txt">${w.quiz_password?'비밀번호':'비공개'}</div></div>`:'';
     const badge=isMineWc?'<span class="qcard-badge badge-mine">내 월드컵</span>':'';
-    return `<div class="qcard" onclick="openWcDetail('${w.id}')">${thumb}${badge}<div class="qcbody"><div class="qcttl">${esc(w.title)}</div><div class="qcdesc">${esc(w.description||'')}</div><div class="qcmeta"><span class="qctag">${esc(w.category||'기타')}</span><span>·</span><span>${roundName}</span><span>·</span><span>▶ ${w.plays||0}회</span></div></div></div>`;
+    return `<div class="qcard${isLocked?' qcard-locked':''}" onclick="openWcDetail('${w.id}')">${thumb}${lockOverlay}${badge}<div class="qcbody"><div class="qcttl">${esc(w.title)}</div><div class="qcdesc">${isLocked?'':esc(w.description||'')}</div><div class="qcmeta"><span class="qctag">${esc(w.category||'기타')}</span><span>·</span><span>${roundName}</span><span>·</span><span>▶ ${w.plays||0}회</span></div></div></div>`;
   }).join('');
 }
 
@@ -1283,7 +1295,19 @@ async function openWcDetail(id){
     wcCurWC=rows[0];
   }
   const w=wcCurWC;
-  
+
+  // 비공개 접근 제한
+  const isMineWc2=currentUser&&w.owner_id===currentUser.id;
+  const isLockedWc=w.is_private&&!isMineWc2&&!isAdmin;
+  if(isLockedWc&&w.quiz_password){
+    wcPendingDetailId=w.id;
+    document.getElementById('pw-inp').value='';
+    document.getElementById('pw-err').style.display='none';
+    document.getElementById('modal-pw').classList.remove('hidden');
+    return;
+  }
+  if(isLockedWc&&!w.quiz_password){toast('비공개 월드컵이에요.');return;}
+
   // 데이터 배열 파싱
   let itemsArray = [];
   if (w.items) {
@@ -1345,6 +1369,9 @@ async function openWcDetail(id){
   }
     
   // 5. 모든 세팅이 완료되면 퀴즈캣의 타이밍과 동일하게 화면을 로드!
+  // 내 월드컵이면 수정 버튼 표시
+  const editBtn=document.getElementById('wc-det-edit-btn');
+  if(editBtn){const isMineWc3=currentUser&&w.owner_id===currentUser.id;editBtn.style.display=isMineWc3?'':'none';}
   showScreen('wc-detail');
   setPageMeta(w.title,'');
 }
@@ -1507,6 +1534,47 @@ function goWcMaker(){
   renderWcMakeList();
   document.getElementById('wc-maker-title').textContent='🐾 월드컵 만들기';
   document.getElementById('wc-pub-btn').textContent='🚀 월드컵 등록';
+  showScreen('wc-maker');
+}
+function startEditWc(){
+  if(!wcCurWC)return;
+  if(!currentUser||wcCurWC.owner_id!==currentUser.id){toast('수정 권한이 없어요');return;}
+  stopAudio();clearTimer();killVideoIframe();
+  wcEditId=wcCurWC.id;
+  const w=wcCurWC;
+  // 폼 채우기
+  document.getElementById('wc-ttl').value=w.title||'';
+  document.getElementById('wc-desc').value=w.description||'';
+  document.getElementById('wc-private').checked=!!w.is_private;
+  document.getElementById('wc-pw-row').classList.toggle('hidden',!w.is_private);
+  document.getElementById('wc-quiz-pw').value=w.quiz_password||'';
+  if(w.thumb){
+    document.getElementById('wc-thumb-prev').src=w.thumb;
+    document.getElementById('wc-thumb-prev').style.display='';
+    document.getElementById('wc-thumb-ut').textContent='클릭하거나 드래그';
+    wcThumb=w.thumb;
+  } else {
+    document.getElementById('wc-thumb-prev').style.display='none';
+    wcThumb=null;
+  }
+  // 카테고리
+  renderWcCatPick();
+  setTimeout(()=>{
+    const catBtns=document.querySelectorAll('#wc-cat-pick .chip');
+    catBtns.forEach(b=>b.classList.toggle('on',b.textContent===(w.category||'기타')));
+  },0);
+  // 타입 및 항목
+  const t=w.item_type||'image';
+  wcMakeType=t;
+  document.querySelectorAll('#screen-wc-maker .tc').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  wcTypeChanged(t);
+  // 항목 배열
+  let items=w.items||[];
+  if(typeof items==='string'){try{items=JSON.parse(items);}catch(e){items=[];}}
+  wcMakeItems=[...items];
+  renderWcMakeList();
+  document.getElementById('wc-maker-title').textContent='✏️ 월드컵 수정';
+  document.getElementById('wc-pub-btn').textContent='💾 수정 저장';
   showScreen('wc-maker');
 }
 function renderWcCatPick(){
@@ -1857,6 +1925,40 @@ async function openDetail(id){
 function closePwModal(){document.getElementById('modal-pw').classList.add('hidden');pendingDetailId=null;}
 async function submitPw(){
   const inp=document.getElementById('pw-inp').value;
+  // 월드캣 비밀번호 처리
+  if(wcPendingDetailId){
+    const rows=await sbSelect('worldcups',`select=*&id=eq.${wcPendingDetailId}`).catch(()=>[]);
+    if(!rows||!rows.length){toast('불러오기 실패');wcPendingDetailId=null;document.getElementById('modal-pw').classList.add('hidden');return;}
+    const wc=rows[0];
+    if(inp===wc.quiz_password){
+      wcPendingDetailId=null;
+      document.getElementById('modal-pw').classList.add('hidden');
+      wcCurWC=wc;
+      // 캐시 갱신
+      const idx=wcAllData.findIndex(x=>x.id===wc.id);
+      if(idx>=0)wcAllData[idx]=wc;else wcAllData.push(wc);
+      // 비공개 잠금 우회 후 상세화면 직접 진입
+      const cnt=(wc.items||[]).length;
+      const tb=document.getElementById('wc-det-thumb-box');
+      const ti=document.getElementById('wc-det-thumb-img');
+      const mainThumb=wc.thumb||wc.cover_img;
+      if(mainThumb){ti.src=mainThumb;tb.style.display='';}else{tb.style.display='none';}
+      document.getElementById('wc-det-cat').textContent=wc.category||'기타';
+      document.getElementById('wc-det-ttl').textContent=wc.title||'';
+      document.getElementById('wc-det-meta').textContent=`▶ ${wc.plays||0}회 · ${cnt}개 항목 · by ${wc.owner_nickname||''}`;
+      document.getElementById('wc-det-desc').textContent=wc.description||'';
+      const btns=document.getElementById('wc-round-btns');
+      const rounds=[];let r=4;while(r<=cnt){rounds.push(r);r*=2;}
+      wcSelRound=cnt;
+      btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')+`<button class="cnt-btn on" onclick="selWcRound(this,${cnt})">전체(${cnt}강)</button>`;
+      const editBtn=document.getElementById('wc-det-edit-btn');
+      if(editBtn)editBtn.style.display='none';
+      showScreen('wc-detail');setPageMeta(wc.title,'');
+    } else {
+      document.getElementById('pw-err').style.display='block';
+    }
+    return;
+  }
   const quiz=rowToQuiz((await sbSelect('quizzes',`select=*&id=eq.${pendingDetailId}`))[0]);
   if(inp===quiz.quizPassword){
     document.getElementById('modal-pw').classList.add('hidden');
@@ -2699,7 +2801,7 @@ window.startWCPlay = function() {
   window.wcPendingNext = null;
   
   // 4. 월드컵 플레이 화면으로 넘어가고 첫 번째 매치 띄우기
-  showScreen('wc-play');
+  showScreen('wc-battle');
   if (typeof renderWCBattle === 'function') {
     renderWCBattle();
   }
