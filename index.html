@@ -1805,6 +1805,7 @@ function tryRestoreQuizDraft(){
   }catch(e){clearQuizDraft();}
 }
 
+async function wcPublish(){
   const title=document.getElementById('wc-ttl').value.trim();
   if(!title){toast('제목을 입력해주세요');return;}
   const cnt=wcMakeItems.length;
