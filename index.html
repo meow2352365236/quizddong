@@ -1273,21 +1273,15 @@ function renderWcGrid(){
 }
 
 async function openWcDetail(id){
-  let wcSelRound=4;
-function selWcRound(btn,n){wcSelRound=n;document.querySelectorAll('#wc-round-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
-async function startWCPlay(){
-  const w=wcCurWC;if(!w)return;
-  const items=[...(w.items||[])];
-  for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
-  wcItems=items.slice(0,wcSelRound);
-  wcRounds=[wcItems];wcRoundIdx=0;wcMatchIdx=0;wcWinners=[];
-  sbUpdate('worldcups',`id=eq.${w.id}`,{plays:(w.plays||0)+1}).catch(()=>{});
-  showScreen('wc-battle');renderWCBattle();
-}
-  // 1. 퀴즈캣과 완벽히 동일하게 데이터를 먼저 온전하게 불러옴 (안정적인 데이터 배치 순서)
-  const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
-  if(!rows||!rows.length){toast('불러오기 실패');return;}
-  wcCurWC=rows[0];
+  // 1. 캐시(wcAllData)에서 먼저 찾고, 없을 때만 Supabase 요청
+  let cached = wcAllData.find(w => w.id === id);
+  if(cached){
+    wcCurWC = cached;
+  } else {
+    const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
+    if(!rows||!rows.length){toast('불러오기 실패');return;}
+    wcCurWC=rows[0];
+  }
   const w=wcCurWC;
   
   // 데이터 배열 파싱
