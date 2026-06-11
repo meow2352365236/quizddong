@@ -1271,34 +1271,47 @@ function renderWcGrid(){
 }
 
 async function openWcDetail(id){
-  // ⚡ 1. 누르자마자 즉시 월드컵 상세 화면으로 먼저 이동! (한 박자 느린 체감 속도 완벽 해결)
+  // ⚡ 1. 즉시 화면 전환 (체감 속도 유지)
   showScreen('wc-detail');
   
-  // 2. 화면이 먼저 부드럽게 켜진 상태에서 서버로부터 데이터를 가져옴
+  // 2. 서버에서 월드컵 정보 불러오기
   const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
   if(!rows||!rows.length){toast('불러오기 실패');return;}
   wcCurWC=rows[0];
   const w=wcCurWC;
-  const cnt=(w.items||[]).length;
   
-  // 3. 썸네일 이미지 매칭 오류 수정 (image 및 유튜브 썸네일 완벽 대응)
+  // 💡 [정밀 수정] 텍스트 파일 안의 구조를 보니, w.items가 문자열(String)로 저장되어 있을 수 있어서 안전하게 파싱합니다.
+  let itemsArray = [];
+  if (w.items) {
+    if (typeof w.items === 'string') {
+      try { itemsArray = JSON.parse(w.items); } catch(e) { itemsArray = []; }
+    } else if (Array.isArray(w.items)) {
+      itemsArray = w.items;
+    }
+  }
+  const cnt = itemsArray.length;
+  
+  // 3. 퀴즈캣 방식을 완벽하게 떼어온 대문 썸네일 노출 로직
   const tb=document.getElementById('wc-det-thumb-box');
   const ti=document.getElementById('wc-det-thumb-img');
   
-  if(w.thumb){
-    // 월드컵 자체 대표 썸네일이 수록되어 있다면 그것을 사용
-    ti.src=w.thumb;
+  // 월드캣 생성 시 등록된 대표 이미지(cover_img나 thumb) 확인
+  const mainThumb = w.cover_img || w.thumb;
+  
+  if(mainThumb){
+    ti.src = mainThumb;
     tb.style.display='';
-  } else if(w.items && w.items.length > 0){
-    // 대표 썸네일이 비어있다면, 첫 번째 항목을 검사하여 대문 이미지로 채워넣음
-    const firstItem = w.items[0];
-    
+  } else if(itemsArray.length > 0){
+    // 대표 이미지가 비어있다면, 퀴즈캣처럼 첫 번째 항목의 이미지를 가져옴
+    const firstItem = itemsArray[0];
     if(firstItem.image){
-      // 첫 번째 항목이 이미지 파일일 때 (.image 명칭 매칭)
       ti.src = firstItem.image;
       tb.style.display='';
+    } else if(firstItem.img){
+      ti.src = firstItem.img;
+      tb.style.display='';
     } else if(firstItem.ytId){
-      // 첫 번째 항목이 유튜브 영상일 때 자동으로 유튜브 고해상도 썸네일을 생성해서 연동
+      // 유튜브 항목일 경우 썸네일 자동 추출
       ti.src = `https://img.youtube.com/vi/${firstItem.ytId}/mqdefault.jpg`;
       tb.style.display='';
     } else {
@@ -1308,20 +1321,25 @@ async function openWcDetail(id){
     tb.style.display='none';
   }
   
-  // 4. 나머지 텍스트 데이터 화면 이름표들에 주입
+  // 4. 텍스트 정보 화면에 주입
   document.getElementById('wc-det-cat').textContent=w.category||'기타';
   document.getElementById('wc-det-ttl').textContent=w.title||'';
   document.getElementById('wc-det-meta').textContent=`▶ ${w.plays||0}회 · ${cnt}개 항목 · by ${w.owner_nickname||''}`;
   document.getElementById('wc-det-desc').textContent=w.description||'';
   
-  // 5. 강 선택 버튼 생성 시스템
+  // 5. 강 선택 버튼 생성
   const btns=document.getElementById('wc-round-btns');
   const rounds=[];
   let r=4;
   while(r<=cnt){rounds.push(r);r*=2;}
   wcSelRound=cnt; 
-  btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')
-    +`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
+  
+  if(rounds.length === 0) {
+    btns.innerHTML = `<button class="cnt-btn on" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
+  } else {
+    btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')
+      +`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
+  }
     
   setPageMeta(w.title,'');
 }
