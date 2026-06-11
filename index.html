@@ -1276,15 +1276,27 @@ async function openWcDetail(id){
   wcCurWC=rows[0];
   const w=wcCurWC;
   const cnt=(w.items||[]).length;
-  // 썸네일
+  
+  // 썸네일 표시 정밀 보정
   const tb=document.getElementById('wc-det-thumb-box');
   const ti=document.getElementById('wc-det-thumb-img');
-  if(w.thumb){ti.src=w.thumb;tb.style.display='';}
-  else{tb.style.display='none';}
+  
+  if(w.thumb){
+    ti.src=w.thumb;
+    tb.style.display='';
+  } else if(w.items && w.items.length > 0 && w.items[0].img){
+    // 만약 월드컵 자체 thumb가 비어있다면, 첫 번째 항목의 이미지를 대문 썸네일로 꽂아준다!
+    ti.src=w.items[0].img;
+    tb.style.display='';
+  } else {
+    tb.style.display='none';
+  }
+  
   document.getElementById('wc-det-cat').textContent=w.category||'기타';
   document.getElementById('wc-det-ttl').textContent=w.title||'';
   document.getElementById('wc-det-meta').textContent=`▶ ${w.plays||0}회 · ${cnt}개 항목 · by ${w.owner_nickname||''}`;
   document.getElementById('wc-det-desc').textContent=w.description||'';
+  
   // 강 선택 버튼
   const btns=document.getElementById('wc-round-btns');
   const rounds=[];
