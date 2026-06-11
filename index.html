@@ -562,7 +562,18 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 <div class="mov hidden" id="modal-wc-item">
   <div class="mod">
     <div class="mod-ttl">항목 추가 <button class="mod-x" onclick="document.getElementById('modal-wc-item').classList.add('hidden')">✕</button></div>
+    
+    <div class="tpick">
+      <div class="tc on" id="wc-tab-img" onclick="document.getElementById('wc-item-img-area').style.display='block'; document.getElementById('wc-item-vid-area').style.display='none'; document.getElementById('wc-tab-img').classList.add('on'); document.getElementById('wc-tab-vid').classList.remove('on');">
+        <div class="ti">📷</div><div class="tn">사진</div><div class="td">이미지 업로드</div>
+      </div>
+      <div class="tc" id="wc-tab-vid" onclick="document.getElementById('wc-item-img-area').style.display='none'; document.getElementById('wc-item-vid-area').style.display='block'; document.getElementById('wc-tab-img').classList.remove('on'); document.getElementById('wc-tab-vid').classList.add('on');">
+        <div class="ti">🎬</div><div class="tn">영상</div><div class="td">유튜브 링크</div>
+      </div>
+    </div>
+
     <div class="fl"><label>항목 이름 *</label><input type="text" id="wc-item-name" autocomplete="off" placeholder="예: 봄"></div>
+    
     <div id="wc-item-img-area" class="fl">
       <label>이미지</label>
       <div class="uzone" id="wc-img-zone">
@@ -571,10 +582,12 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
         <img id="wc-item-img-prev" class="uprev" alt="">
       </div>
     </div>
-    <div id="wc-item-vid-area" style="display:none">
+    
+    <div id="wc-item-vid-area" class="fl" style="display:none">
       <div class="fl"><label>유튜브 URL *</label><input type="text" id="wc-item-yt" placeholder="https://youtu.be/..." autocomplete="off"></div>
       <div id="wc-ytprev" style="display:none;margin-top:6px" class="yt-prev-m"><div class="yr"><iframe id="wc-ytif" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe></div></div>
     </div>
+    
     <div style="display:flex;gap:8px;margin-top:14px">
       <button class="btn" style="flex:1" onclick="document.getElementById('modal-wc-item').classList.add('hidden')">취소</button>
       <button class="btn btn-acc" style="flex:2" onclick="wcSaveItem()">추가</button>
