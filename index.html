@@ -1231,11 +1231,12 @@ async function goMyWC(){
     const cnt=(w.items||[]).length;
     return `<div class="myq-item">${thumb}
       <div class="myq-body">
-        <div class="myq-ttl">${esc(w.title)}</div>
+        <div class="myq-ttl">${esc(w.title)}${w.is_private?' 🔒':''}</div>
         <div class="myq-meta">${cnt}강 · ▶ ${w.plays||0}회 · ${w.category||'기타'}</div>
       </div>
       <div class="myq-actions">
         <button class="btn btn-sm" onclick="openWcDetail('${w.id}')">▶ 시작</button>
+        <button class="btn btn-sm" onclick="startEditWcById('${w.id}')">✏️ 수정</button>
         <button class="btn btn-sm btn-red" onclick="deleteMyWC('${w.id}')">삭제</button>
       </div>
     </div>`;
@@ -1546,6 +1547,17 @@ function goWcMaker(){
   document.getElementById('wc-pub-btn').textContent='🚀 월드컵 등록';
   showScreen('wc-maker');
 }
+async function startEditWcById(id){
+  // 캐시에서 찾거나 직접 fetch
+  let wc = wcAllData.find(w=>w.id===id);
+  if(!wc){
+    const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
+    if(!rows||!rows.length){toast('불러오기 실패');return;}
+    wc=rows[0];
+  }
+  wcCurWC=wc;
+  startEditWc();
+}
 function startEditWc(){
   if(!wcCurWC)return;
   if(!currentUser||wcCurWC.owner_id!==currentUser.id){toast('수정 권한이 없어요');return;}
@@ -1692,11 +1704,11 @@ async function wcPublish(){
     created_at:existing.created_at||Date.now(),
     owner_id:currentUser.id,owner_nickname:currentUser.nickname
   });
-  toast(wcEditId?'✅ 월드컵이 수정됐어요!':'🎉 월드컵이 등록됐어요!');
+  const wasEdit = !!wcEditId;
+  toast(wasEdit?'✅ 월드컵이 수정됐어요!':'🎉 월드컵이 등록됐어요!');
   wcEditId=null;
-  setTimeout(goWcHome,600);
   wcAllData=[];  // 캐시 초기화
-  setTimeout(goWcHome,600);
+  setTimeout(goWcHome, 600);
 }
 async function refreshUserStat(){
   if(!currentUser)return;
@@ -2808,8 +2820,16 @@ window.startWCPlay = function() {
   wcRoundIdx = 0;
   wcMatchIdx = 0;
   wcWinners = [];
-  
-  // 4. 월드컵 배틀 화면으로 이동
+
+  // 4. plays 카운트 증가
+  const newPlays = (wcCurWC.plays||0) + 1;
+  wcCurWC.plays = newPlays;
+  sbUpdate('worldcups',`id=eq.${wcCurWC.id}`,{plays:newPlays}).catch(()=>{});
+  // 캐시도 업데이트
+  const _pi = wcAllData.findIndex(x=>x.id===wcCurWC.id);
+  if(_pi>=0) wcAllData[_pi].plays = newPlays;
+
+  // 5. 월드컵 배틀 화면으로 이동
   showScreen('wc-battle');
   renderWCBattle();
 };
