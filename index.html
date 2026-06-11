@@ -1258,15 +1258,11 @@ async function deleteMyWC(id){
   toast('삭제됐어요');goMyWC();
 }
 async function wcFetchAll(){
-  // 500 에러 대비: 실패 시 select=* 로 재시도
-  const q = 'select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at&order=created_at.desc';
-  try{ return await sbSelect('worldcups', q); }
-  catch(e){ return await sbSelect('worldcups', 'select=*&order=created_at.desc').catch(()=>[]); }
+  // 퀴즈캣과 동일 방식 — items/win_stats(무거운 컬럼)만 제외하고 나머지 전부 요청
+  return sbSelect('worldcups','select=id,title,description,category,item_type,thumb,is_private,quiz_password,plays,created_at,owner_id,owner_nickname&order=created_at.desc').catch(()=>[]);
 }
 async function wcFetchMine(uid){
-  const q = `select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at&owner_id=eq.${uid}&order=created_at.desc`;
-  try{ return await sbSelect('worldcups', q); }
-  catch(e){ return await sbSelect('worldcups', `select=*&owner_id=eq.${uid}&order=created_at.desc`).catch(()=>[]); }
+  return sbSelect('worldcups',`select=id,title,description,category,item_type,thumb,is_private,quiz_password,plays,created_at,owner_id,owner_nickname&owner_id=eq.${uid}&order=created_at.desc`).catch(()=>[]);
 }
 async function goWcHome(){
   stopAudio();clearTimer();killVideoIframe();
