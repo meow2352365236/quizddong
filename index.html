@@ -1895,7 +1895,32 @@ function renderCatPick(){document.getElementById('cat-pick').innerHTML=CATS.filt
 function setMkCat(el,c){mkCat=c;document.querySelectorAll('.cp').forEach(x=>x.classList.toggle('on',x.textContent===c));}
 function setCat(c){activeCat=c;renderCats();renderGrid();}
 function setSort(btn,s){activeSort=s;document.querySelectorAll('.sort').forEach(b=>b.classList.toggle('on',b===btn));renderGrid();}
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');window.scrollTo(0,0);}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-'+id).classList.add('active');window.scrollTo(0,0);if(id==='wc-battle')applyBattleZoomFix();else removeBattleZoomFix();}
+
+// ── 배틀 화면 줌 보정: 브라우저 확대/축소해도 항상 뷰포트 100% 기준으로 고정 ──
+let _battleZoomHandler=null;
+function applyBattleZoomFix(){
+  const el=document.getElementById('screen-wc-battle');
+  if(!el)return;
+  function fix(){
+    // outerWidth/innerWidth 비율로 브라우저 줌 레벨 감지
+    const zoom=window.outerWidth>0?Math.round((window.outerWidth/window.innerWidth)*100)/100:1;
+    const scale=1/zoom;
+    el.style.transformOrigin='top left';
+    el.style.transform='scale('+scale+')';
+    el.style.width=(100*zoom)+'vw';
+    el.style.minHeight=(100*zoom)+'vh';
+  }
+  fix();
+  if(_battleZoomHandler)window.removeEventListener('resize',_battleZoomHandler);
+  _battleZoomHandler=fix;
+  window.addEventListener('resize',_battleZoomHandler);
+}
+function removeBattleZoomFix(){
+  const el=document.getElementById('screen-wc-battle');
+  if(el){el.style.transform='';el.style.width='';el.style.minHeight='';el.style.transformOrigin='';}
+  if(_battleZoomHandler){window.removeEventListener('resize',_battleZoomHandler);_battleZoomHandler=null;}
+}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtSec(s){const m=Math.floor(s/60),sec=Math.floor(s%60);return m+':'+(sec<10?'0':'')+sec;}
