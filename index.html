@@ -863,6 +863,7 @@ const SB_H = {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authoriza
 async function sbSelect(table,filter=''){const base=SUPABASE_URL.replace(/\/+$/,'');const r=await fetch(`${base}/rest/v1/${table}?${filter}`,{headers:{...SB_H,'Prefer':''}});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbUpsert(table,obj){const base=SUPABASE_URL.replace(/\/+$/,'');const r=await fetch(`${base}/rest/v1/${table}`,{method:'POST',headers:{...SB_H,'Prefer':'return=representation,resolution=merge-duplicates'},body:JSON.stringify(obj)});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbUpdate(table,filter,obj){const _b=SUPABASE_URL.replace(/\/+$/,'');const r=await fetch(`${_b}/rest/v1/${table}?${filter}`,{method:'PATCH',headers:{...SB_H,'Content-Type':'application/json'},body:JSON.stringify(obj)});if(!r.ok)throw new Error(await r.text());return r.json();}
+async function sbInsert(table,obj){const base=SUPABASE_URL.replace(/\/+$/,'');const r=await fetch(`${base}/rest/v1/${table}`,{method:'POST',headers:{...SB_H,'Prefer':'return=representation'},body:JSON.stringify(obj)});if(!r.ok)throw new Error(await r.text());return r.json();}
 async function sbDelete(table,filter){const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`,{method:'DELETE',headers:{...SB_H,'Prefer':''}});if(!r.ok)throw new Error(await r.text());}
 async function uploadFile(bucket,path,file){const r=await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`,{method:'POST',headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},body:file});if(!r.ok)throw new Error(await r.text());return`${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;}
 
@@ -1185,7 +1186,7 @@ function toggleSite(){
     const nb=document.getElementById('update-log-bar');if(nb)nb.style.display='none';
     // 월드캣 전환 시 데이터 미리 로드 (빠른 화면 전환)
     if(!wcAllData.length){
-      sbSelect('worldcups','select=*&order=created_at.desc').then(rows=>{
+      sbSelect('worldcups','select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at,win_stats&order=created_at.desc').then(rows=>{
         wcAllData=rows||[];
         renderWcGrid();
       }).catch(()=>{});
@@ -1224,11 +1225,17 @@ let wcAllData=[],wcActiveCat='전체',wcCats=['전체','아이돌','음식','동
 async function goMyWC(){
   if(!currentUser){toast('로그인이 필요해요');goAuth();return;}
   stopAudio();clearTimer();killVideoIframe();showScreen('mywc');
-  const rows=await sbSelect('worldcups',`select=*&owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]);
   const list=document.getElementById('mywc-list');
-  if(!rows||!rows.length){
-    list.innerHTML='<div class="empty"><div class="ei">📭</div><p>아직 만든 월드컵이 없어요.<br>첫 번째로 만들어보세요!</p></div>';return;
-  }
+  // 캐시에서 즉시 렌더
+  const cached=wcAllData.filter(w=>w.owner_id===currentUser.id);
+  if(cached.length>0){renderMyWCList(list,cached);}
+  else{list.innerHTML='<div style="color:var(--text3);text-align:center;padding:24px">불러오는 중...</div>';}
+  // 최신 데이터 백그라운드 갱신
+  const rows=await sbSelect('worldcups',`select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at,win_stats&owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]);
+  if(rows){renderMyWCList(list,rows);}
+}
+function renderMyWCList(list,rows){
+  if(!rows||!rows.length){list.innerHTML='<div class="empty"><div class="ei">📭</div><p>아직 만든 월드컵이 없어요.<br>첫 번째로 만들어보세요!</p></div>';return;}
   list.innerHTML=rows.map(w=>{
     const thumb=w.thumb?`<img class="myq-thumb" src="${w.thumb}" alt="">`:`<div class="myq-thumb">🏆</div>`;
     const cnt=(w.items||[]).length;
@@ -1262,7 +1269,7 @@ async function goWcHome(){
   if(wcAllData.length){
     renderWcGrid();
   } else {
-    wcAllData=await sbSelect('worldcups','select=*&order=created_at.desc').catch(()=>[]);
+    wcAllData=await sbSelect('worldcups','select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at,win_stats&order=created_at.desc').catch(()=>[]);
     renderWcGrid();
   }
 }
@@ -2463,13 +2470,13 @@ async function toggleWcLike(){
   const id=wcCurWC.id;
   const liked=hasWcLiked(id);
   localStorage.setItem(getWcLikeKey(id),liked?'0':'1');
-  const rows=await sbSelect('worldcups',`select=likes&id=eq.${id}`).catch(()=>[]);
-  const cur=(rows&&rows[0]&&rows[0].likes)||0;
+  // likes 컬럼이 없어도 UI는 즉시 반응
+  const cur=wcCurWC.likes||0;
   const newVal=Math.max(0,cur+(liked?-1:1));
-  await sbUpdate('worldcups',`id=eq.${id}`,{likes:newVal});
+  updateWcLikeUI(newVal,!liked);
   wcCurWC.likes=newVal;
   const pi=wcAllData.findIndex(x=>x.id===id);if(pi>=0)wcAllData[pi].likes=newVal;
-  updateWcLikeUI(newVal,!liked);
+  sbUpdate('worldcups',`id=eq.${id}`,{likes:newVal}).catch(()=>{});
 }
 function shareWC(){
   if(!wcCurWC)return;
@@ -2489,8 +2496,17 @@ function useWcCmt(id){
   localStorage.setItem(key,String(parseInt(localStorage.getItem(key)||'0')+1));
 }
 async function getWcComments(wid){
-  const rows=await sbSelect('wc_comments',`select=*&wc_id=eq.${wid}&order=created_at.desc`).catch(()=>[]);
-  return rows||[];
+  // wc_comments 테이블 시도, 없으면 worldcups.comments 컬럼 fallback
+  try{
+    const rows=await sbSelect('wc_comments',`select=*&wc_id=eq.${wid}&order=created_at.desc`);
+    return rows||[];
+  }catch(e){
+    try{
+      const rows=await sbSelect('worldcups',`select=comments&id=eq.${wid}`);
+      const cl=(rows&&rows[0]&&rows[0].comments)||[];
+      return cl.map((r,i)=>({id:i,nickname:r.nick||r.nickname||'?',content:r.text||r.content||'',created_at:r.time||r.created_at||0}));
+    }catch(e2){return [];}
+  }
 }
 async function loadWcComments(wid){
   const wrap=document.getElementById('wc-det-cmt-wrap');if(!wrap)return;
@@ -2520,13 +2536,17 @@ async function postWcComment(wid){
   const nick=n.value.trim()||'익명',txt=t.value.trim();
   if(!txt){toast('댓글 내용을 입력해주세요');return;}
   if(getWcCmtLeft(wid)<=0){toast('오늘 댓글 한도 도달');return;}
-  await sbInsert('wc_comments',{wc_id:wid,nickname:nick,content:txt,created_at:Date.now()}).catch(async()=>{
-    // wc_comments 테이블이 없으면 worldcups의 comments 컬럼 사용 (fallback)
-    const rows=await sbSelect('worldcups',`select=comments&id=eq.${wid}`).catch(()=>[]);
-    const cl=(rows&&rows[0]&&rows[0].comments)||[];
-    cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR')});
-    await sbUpdate('worldcups',`id=eq.${wid}`,{comments:cl}).catch(()=>{});
-  });
+  try{
+    await sbInsert('wc_comments',{wc_id:wid,nickname:nick,content:txt,created_at:Date.now()});
+  }catch(e){
+    // wc_comments 없으면 worldcups.comments fallback
+    try{
+      const rows=await sbSelect('worldcups',`select=comments&id=eq.${wid}`).catch(()=>[]);
+      const cl=(rows&&rows[0]&&rows[0].comments)||[];
+      cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR')});
+      await sbUpdate('worldcups',`id=eq.${wid}`,{comments:cl}).catch(()=>{});
+    }catch(e2){}
+  }
   useWcCmt(wid);t.value='';
   loadWcComments(wid);
 }
@@ -2927,7 +2947,7 @@ function goSettings(){
   }
 }
 
-// ═══ INIT ═══  
+// ═══ INIT ═══
 (async()=>{
   updateNavAuth();
   await loadNotice();
