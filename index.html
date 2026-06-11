@@ -2502,20 +2502,12 @@ function useWcCmt(id){
   const key='wc_cmt_'+id+'_'+today;
   localStorage.setItem(key,String(parseInt(localStorage.getItem(key)||'0')+1));
 }
-function getWcCommentsLocal(wid){
-  try{return JSON.parse(localStorage.getItem('wc_cmts_'+wid)||'[]');}catch(e){return [];}
-}
-function saveWcCommentsLocal(wid,cl){
-  try{localStorage.setItem('wc_cmts_'+wid,JSON.stringify(cl));}catch(e){}
-}
+// 퀴즈캣과 동일하게 comments 테이블 재사용 (wc_ 접두어로 구분)
 async function getWcComments(wid){
-  // wc_comments 테이블 먼저 시도
-  try{
-    const rows=await sbSelect('wc_comments',`select=*&wc_id=eq.${wid}&order=created_at.desc`);
-    if(rows&&rows.length){return rows;}
-  }catch(e){}
-  // localStorage fallback
-  return getWcCommentsLocal(wid);
+  return sbSelect('comments',`quiz_id=eq.wc_${wid}`).then(r=>r[0]?r[0].comments:[]).catch(()=>[]);
+}
+async function putWcComments(wid,comments){
+  return sbUpsert('comments',{quiz_id:'wc_'+wid,comments});
 }
 async function loadWcComments(wid){
   const wrap=document.getElementById('wc-det-cmt-wrap');if(!wrap)return;
@@ -2533,28 +2525,49 @@ async function loadWcComments(wid){
          </div>`
       :`<div class="cmt-limit" style="color:var(--red)">오늘 댓글 한도(3회) 도달.</div>`
     }
-    <div class="cmt-list" id="wc-cmt-list">${cl.map(r=>`<div class="citem"><div class="ci-top"><span class="cn">${esc(r.nickname||'?')}</span><span class="cd" style="margin-left:8px;font-size:12px;color:var(--text3)">${new Date(r.created_at).toLocaleString('ko-KR')}</span></div><div class="ct">${esc(r.content||'')}</div></div>`).join('')}</div>
+    <div class="cmt-list" id="wc-cmt-list">${renderWcComments(cl,wid)}</div>
   </div>`;
   if(currentUser&&document.getElementById('wc-cn'))document.getElementById('wc-cn').value=currentUser.nickname;
   const ctEl=document.getElementById('wc-ct');
   if(ctEl)ctEl.addEventListener('keydown',e=>{if(e.key==='Enter')postWcComment(wid);});
 }
+function renderWcComments(cl,wid){
+  if(!cl.length)return'<div class="no-cmt">아직 댓글이 없어요!</div>';
+  return cl.slice().reverse().map((cm,ri)=>{
+    const realIdx=cl.length-1-ri;
+    const replies=(cm.replies||[]).map((r,ridx)=>`<div class="ritem"><div class="ri-top"><span class="rn">↳ ${esc(r.nick)}</span>${isAdmin?`<button class="ci-del" onclick="deleteWcReply('${wid}',${realIdx},${ridx})">✕</button>`:''}</div><div class="rt">${esc(r.text)}</div><div class="rd">${r.time}</div></div>`).join('');
+    const likedKey=`wc_like_cmt_${wid}_${realIdx}`;const liked=localStorage.getItem(likedKey)==='1';
+    const clv=cm.level||1;
+    return `<div class="citem"><div class="ci-top"><span class="cn">${esc(cm.nick)}${getLevelBadge(clv)}</span><div class="ci-actions"><button class="ci-like${liked?' liked':''}" onclick="toggleWcCommentLike('${wid}',${realIdx})">♥ ${cm.likes||0}</button><button class="ci-reply-btn" onclick="toggleWcReplyForm(${realIdx})">↩ 답글</button>${isAdmin?`<button class="ci-del" onclick="deleteWcComment('${wid}',${realIdx})">✕</button>`:''}</div></div><div class="ct">${esc(cm.text)}</div><div class="cd">${cm.time}</div>${replies?`<div class="reply-list">${replies}</div>`:''}<div class="reply-form" id="wc-rf-${realIdx}" style="display:none;gap:6px"><input type="text" id="wc-ri-${realIdx}" placeholder="닉네임" style="max-width:80px"><input type="text" id="wc-rt-${realIdx}" placeholder="답글 입력"><button class="btn btn-acc btn-sm" onclick="postWcReply('${wid}',${realIdx})">등록</button></div></div>`;
+  }).join('');
+}
+function toggleWcReplyForm(idx){const f=document.getElementById('wc-rf-'+idx);if(f)f.style.display=f.style.display==='flex'?'none':'flex';}
+async function toggleWcCommentLike(wid,idx){
+  const key=`wc_like_cmt_${wid}_${idx}`;const liked=localStorage.getItem(key)==='1';
+  localStorage.setItem(key,liked?'0':'1');
+  const cl=await getWcComments(wid);if(!cl[idx])return;
+  cl[idx].likes=(cl[idx].likes||0)+(liked?-1:1);
+  await putWcComments(wid,cl);loadWcComments(wid);
+}
+async function postWcReply(wid,idx){
+  const nick=(document.getElementById('wc-ri-'+idx)||{}).value?.trim()||'익명';
+  const text=(document.getElementById('wc-rt-'+idx)||{}).value?.trim();if(!text){toast('답글을 입력해주세요');return;}
+  const cl=await getWcComments(wid);if(!cl[idx].replies)cl[idx].replies=[];
+  cl[idx].replies.push({nick,text,time:new Date().toLocaleString('ko-KR')});
+  await putWcComments(wid,cl);loadWcComments(wid);
+}
+async function deleteWcComment(wid,idx){if(!confirm('삭제할까요?'))return;const cl=await getWcComments(wid);cl.splice(idx,1);await putWcComments(wid,cl);loadWcComments(wid);}
+async function deleteWcReply(wid,idx,ridx){const cl=await getWcComments(wid);cl[idx].replies.splice(ridx,1);await putWcComments(wid,cl);loadWcComments(wid);}
 async function postWcComment(wid){
   const n=document.getElementById('wc-cn'),t=document.getElementById('wc-ct');
   if(!n||!t)return;
   const nick=n.value.trim()||'익명',txt=t.value.trim();
   if(!txt){toast('댓글 내용을 입력해주세요');return;}
   if(getWcCmtLeft(wid)<=0){toast('오늘 댓글 한도 도달');return;}
-  const newCmt={wc_id:wid,nickname:nick,content:txt,created_at:Date.now()};
-  // wc_comments 테이블 시도
-  let saved=false;
-  try{await sbInsert('wc_comments',newCmt);saved=true;}catch(e){}
-  // 실패 시 localStorage에 저장
-  if(!saved){
-    const cl=getWcCommentsLocal(wid);
-    cl.unshift({...newCmt,id:'local_'+Date.now()});
-    saveWcCommentsLocal(wid,cl);
-  }
+  const cl=await getWcComments(wid);
+  const lv=currentUser?getLevel(currentUser.exp||0):1;
+  cl.push({nick,text:txt,time:new Date().toLocaleString('ko-KR'),likes:0,replies:[],level:lv});
+  await putWcComments(wid,cl);
   useWcCmt(wid);t.value='';
   loadWcComments(wid);
 }
