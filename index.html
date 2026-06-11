@@ -1186,7 +1186,7 @@ function toggleSite(){
     const nb=document.getElementById('update-log-bar');if(nb)nb.style.display='none';
     // 월드캣 전환 시 데이터 미리 로드 (빠른 화면 전환)
     if(!wcAllData.length){
-      sbSelect('worldcups','select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at,win_stats&order=created_at.desc').then(rows=>{
+      wcFetchAll().then(rows=>{
         wcAllData=rows||[];
         renderWcGrid();
       }).catch(()=>{});
@@ -1231,7 +1231,7 @@ async function goMyWC(){
   if(cached.length>0){renderMyWCList(list,cached);}
   else{list.innerHTML='<div style="color:var(--text3);text-align:center;padding:24px">불러오는 중...</div>';}
   // 최신 데이터 백그라운드 갱신
-  const rows=await sbSelect('worldcups',`select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at,win_stats&owner_id=eq.${currentUser.id}&order=created_at.desc`).catch(()=>[]);
+  const rows=await wcFetchMine(currentUser.id);
   if(rows){renderMyWCList(list,rows);}
 }
 function renderMyWCList(list,rows){
@@ -1257,6 +1257,17 @@ async function deleteMyWC(id){
   await sbDelete('worldcups',`id=eq.${id}`);
   toast('삭제됐어요');goMyWC();
 }
+async function wcFetchAll(){
+  // 500 에러 대비: 실패 시 select=* 로 재시도
+  const q = 'select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at&order=created_at.desc';
+  try{ return await sbSelect('worldcups', q); }
+  catch(e){ return await sbSelect('worldcups', 'select=*&order=created_at.desc').catch(()=>[]); }
+}
+async function wcFetchMine(uid){
+  const q = `select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at&owner_id=eq.${uid}&order=created_at.desc`;
+  try{ return await sbSelect('worldcups', q); }
+  catch(e){ return await sbSelect('worldcups', `select=*&owner_id=eq.${uid}&order=created_at.desc`).catch(()=>[]); }
+}
 async function goWcHome(){
   stopAudio();clearTimer();killVideoIframe();
   showScreen('wc-home');setPageMeta('월드캣','/worldcat');
@@ -1269,7 +1280,7 @@ async function goWcHome(){
   if(wcAllData.length){
     renderWcGrid();
   } else {
-    wcAllData=await sbSelect('worldcups','select=id,title,description,category,thumb,plays,is_private,quiz_password,owner_id,owner_nickname,item_type,items,created_at,win_stats&order=created_at.desc').catch(()=>[]);
+    wcAllData=await wcFetchAll();
     renderWcGrid();
   }
 }
