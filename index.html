@@ -1303,8 +1303,18 @@ function renderWcGrid(){
     const cnt=(w.items||[]).length;
     const roundName=cnt>=128?'128강':cnt>=64?'64강':cnt>=32?'32강':cnt>=16?'16강':cnt>=8?'8강':'4강';
     const blurClass=isLocked?' blurred':'';
-    const thumb=w.thumb
-      ?`<div class="qthumb-wrap${blurClass}"><img src="${w.thumb}" alt=""></div>`
+    // [BUG3 FIX] 대표 썸네일: thumb 없으면 첫 항목 이미지로 fallback
+    let cardThumbUrl=w.thumb||'';
+    if(!cardThumbUrl&&(w.items||[]).length>0){
+      const fi=Array.isArray(w.items)?w.items[0]:(()=>{try{return JSON.parse(w.items)[0];}catch(e){return null;}})();
+      if(fi){
+        if(fi.image)cardThumbUrl=fi.image;
+        else if(fi.img)cardThumbUrl=fi.img;
+        else if(fi.ytId)cardThumbUrl=`https://img.youtube.com/vi/${fi.ytId}/mqdefault.jpg`;
+      }
+    }
+    const thumb=cardThumbUrl
+      ?`<div class="qthumb-wrap${blurClass}"><img src="${cardThumbUrl}" alt=""></div>`
       :`<div class="qthumb-wrap${blurClass}"><div class="ph">🏆</div></div>`;
     const lockOverlay=isLocked?`<div class="lock-overlay"><div class="lock-icon">🔒</div><div class="lock-txt">${w.quiz_password?'비밀번호':'비공개'}</div></div>`:'';
     const badge=isMineWc?'<span class="qcard-badge badge-mine">내 월드컵</span>':'';
@@ -1583,10 +1593,11 @@ function startEditWc(){
   if(w.thumb){
     document.getElementById('wc-thumb-prev').src=w.thumb;
     document.getElementById('wc-thumb-prev').style.display='';
-    document.getElementById('wc-thumb-ut').textContent='클릭하거나 드래그';
+    document.getElementById('wc-thumb-ut').textContent='✅ 현재 썸네일 (변경하려면 새 파일 선택)';
     wcThumb=w.thumb;
   } else {
     document.getElementById('wc-thumb-prev').style.display='none';
+    document.getElementById('wc-thumb-ut').textContent='클릭하거나 드래그';
     wcThumb=null;
   }
   // 카테고리
@@ -1688,32 +1699,60 @@ async function wcPublish(){
   const pow=Math.floor(Math.log2(cnt));
   if(cnt!==(1<<pow)){toast('항목 수는 2의 배수(4,8,16,32...)여야 해요. 현재: '+cnt+'개');return;}
   const id=wcEditId||('wc_'+Date.now());
-  
-  // 항목들 중에서 첫 번째 이미지나 유튜브 썸네일을 안전하게 추출
+
+  toast('⏳ 이미지 업로드 중...');
+
+  // [BUG1 FIX] 항목 이미지 base64 → Storage URL 변환 (payload 크기 초과 방지)
+  const finalItems=[];
+  for(let i=0;i<wcMakeItems.length;i++){
+    const it={...wcMakeItems[i]};
+    if(it.image&&it.image.startsWith('data:')){
+      try{
+        const blob=await(await fetch(it.image)).blob();
+        const ext=blob.type.split('/')[1]||'jpg';
+        const path=`wc-items/${id}_${i}_${Date.now()}.${ext}`;
+        it.image=await uploadFile('quizbox-files',path,blob);
+      }catch(e){toast('이미지 업로드 실패: '+(i+1)+'번 항목');return;}
+    }
+    finalItems.push(it);
+  }
+
+  // [BUG2/3 FIX] 썸네일 처리: base64면 업로드, URL이면 그대로, 없으면 첫 항목에서 자동 추출
   let thumb = wcThumb || '';
-  if(!thumb && wcMakeItems.length > 0) {
-    const first = wcMakeItems[0];
+  if(thumb&&thumb.startsWith('data:')){
+    try{
+      const blob=await(await fetch(thumb)).blob();
+      const ext=blob.type.split('/')[1]||'jpg';
+      const path=`wc-thumbs/${id}_${Date.now()}.${ext}`;
+      thumb=await uploadFile('quizbox-files',path,blob);
+    }catch(e){thumb='';}
+  }
+  // thumb이 없으면 첫 항목 이미지를 대표 썸네일로 사용 (카드에 표시)
+  if(!thumb && finalItems.length > 0) {
+    const first = finalItems[0];
     if(first.image) thumb = first.image;
     else if(first.img) thumb = first.img;
     else if(first.ytId) thumb = `https://img.youtube.com/vi/${first.ytId}/mqdefault.jpg`;
   }
-  
+
   const isPrivate=document.getElementById('wc-private').checked;
   const quizPw=document.getElementById('wc-quiz-pw').value.trim();
   const category=wcMakeCat||'기타';
   const existing=wcEditId?(await sbSelect('worldcups','select=plays,win_stats,created_at&id=eq.'+wcEditId).catch(()=>[]))[0]||{}:{};
-  
-  // 데이터베이스에 실제 존재하는 칼럼들로만 안전하게 저장!
-  await sbUpsert('worldcups',{
-    id,title,
-    description:document.getElementById('wc-desc').value.trim(),
-    category,item_type:wcMakeType,items:wcMakeItems,
-    thumb: thumb, // 👈 안전하게 원래 존재하던 thumb 칸에만 저장!
-    is_private:isPrivate,quiz_password:quizPw,
-    plays:existing.plays||0,win_stats:existing.win_stats||{},
-    created_at:existing.created_at||Date.now(),
-    owner_id:currentUser.id,owner_nickname:currentUser.nickname
-  });
+
+  try{
+    await sbUpsert('worldcups',{
+      id,title,
+      description:document.getElementById('wc-desc').value.trim(),
+      category,item_type:wcMakeType,items:finalItems,
+      thumb:thumb,
+      is_private:isPrivate,quiz_password:quizPw,
+      plays:existing.plays||0,win_stats:existing.win_stats||{},
+      created_at:existing.created_at||Date.now(),
+      owner_id:currentUser.id,owner_nickname:currentUser.nickname
+    });
+  }catch(e){toast('저장 실패: '+e.message);return;}
+
   const wasEdit = !!wcEditId;
   toast(wasEdit?'✅ 월드컵이 수정됐어요!':'🎉 월드컵이 등록됐어요!');
   wcEditId=null;
