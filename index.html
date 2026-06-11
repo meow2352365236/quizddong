@@ -1244,8 +1244,10 @@ async function goWcHome(){
   const cats=['전체', '아이돌', '음식', '동물', '게임', '영화', '음악', '스포츠', '기타'];
   const catEl=document.getElementById('wc-cat-btns');
   if(catEl)catEl.innerHTML=wcCats.map(c=>`<button class="chip${c===wcActiveCat?' on':''}" onclick="wcSetCat('${c}')">${c}</button>`).join('');
+if(!wcAllData.length){
   wcAllData=await sbSelect('worldcups','select=*&order=created_at.desc').catch(()=>[]);
-  renderWcGrid();
+}
+renderWcGrid();
 }
 function wcSetCat(c){wcActiveCat=c;const els=document.querySelectorAll('#wc-cat-btns .chip');els.forEach(b=>b.classList.toggle('on',b.textContent===c));renderWcGrid();}
 function renderWcGrid(){
@@ -1271,6 +1273,17 @@ function renderWcGrid(){
 }
 
 async function openWcDetail(id){
+  let wcSelRound=4;
+function selWcRound(btn,n){wcSelRound=n;document.querySelectorAll('#wc-round-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
+async function startWCPlay(){
+  const w=wcCurWC;if(!w)return;
+  const items=[...(w.items||[])];
+  for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
+  wcItems=items.slice(0,wcSelRound);
+  wcRounds=[wcItems];wcRoundIdx=0;wcMatchIdx=0;wcWinners=[];
+  sbUpdate('worldcups',`id=eq.${w.id}`,{plays:(w.plays||0)+1}).catch(()=>{});
+  showScreen('wc-battle');renderWCBattle();
+}
   // 1. 퀴즈캣과 완벽히 동일하게 데이터를 먼저 온전하게 불러옴 (안정적인 데이터 배치 순서)
   const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
   if(!rows||!rows.length){toast('불러오기 실패');return;}
@@ -1609,6 +1622,8 @@ async function wcPublish(){
   });
   toast(wcEditId?'✅ 월드컵이 수정됐어요!':'🎉 월드컵이 등록됐어요!');
   wcEditId=null;
+  setTimeout(goWcHome,600);
+  wcAllData=[];  // 캐시 초기화
   setTimeout(goWcHome,600);
 }
 async function refreshUserStat(){
@@ -2664,6 +2679,38 @@ function saveQ(){
 }
 
 // ═══ SETTINGS + ADMIN TOGGLE BTN ═══
+
+window.startWCPlay = function() {
+  if (!wcCurWC) return;
+  
+  // 1. 대기방에서 불러왔던 데이터 배열 가져오기
+  let itemsArray = [];
+  if (typeof wcCurWC.items === 'string') {
+    try { itemsArray = JSON.parse(wcCurWC.items); } catch(e) { }
+  } else if (Array.isArray(wcCurWC.items)) {
+    itemsArray = [...wcCurWC.items];
+  }
+  
+  // 2. 월드컵 항목 랜덤으로 섞기 및 사용자가 선택한 강수(예: 16강, 32강)만큼 자르기
+  itemsArray.sort(() => Math.random() - 0.5);
+  if (window.wcSelRound) {
+    itemsArray = itemsArray.slice(0, window.wcSelRound);
+  }
+
+  // 3. 월드컵 진행을 위한 기본 변수들 초기화 (클로드가 짜둔 규칙에 맞춤)
+  window.wcRounds = [itemsArray];
+  window.wcRoundIdx = 0;
+  window.wcMatchIdx = 0;
+  window.wcWinners = [];
+  window.wcPendingNext = null;
+  
+  // 4. 월드컵 플레이 화면으로 넘어가고 첫 번째 매치 띄우기
+  showScreen('wc-play');
+  if (typeof renderWCBattle === 'function') {
+    renderWCBattle();
+  }
+};
+
 function goSettings(){
   stopAudio();clearTimer();killVideoIframe();showScreen('settings');renderThemeGrid();updateAdminUI();updateNavAuth();loadNotice();loadUpdateLog();
   const sbns=document.getElementById('settings-auth-btns');
