@@ -1271,13 +1271,13 @@ function renderWcGrid(){
 }
 
 async function openWcDetail(id){
-  // 1. 퀴즈캣과 완벽히 동일하게 데이터를 먼저 온전하게 불러옴 (핑 및 썸네일 매칭 안정화)
+  // 1. 퀴즈캣과 완벽히 동일하게 데이터를 먼저 온전하게 불러옴 (안정적인 데이터 배치 순서)
   const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
   if(!rows||!rows.length){toast('불러오기 실패');return;}
   wcCurWC=rows[0];
   const w=wcCurWC;
   
-  // 데이터 파싱
+  // 데이터 배열 파싱
   let itemsArray = [];
   if (w.items) {
     if (typeof w.items === 'string') {
@@ -1288,17 +1288,18 @@ async function openWcDetail(id){
   }
   const cnt = itemsArray.length;
   
-  // 2. [퀴즈캣 상세 이미지 로직 100% 이식]
+  // 2. [퀴즈캣 상세 로직 100% 카피] 이미지 뿌려주는 칸 매칭
   const tb=document.getElementById('wc-det-thumb-box');
   const ti=document.getElementById('wc-det-thumb-img');
   
-  // 퀴즈캣이 사용하던 cover_img 속성을 최우선으로 매칭
-  const mainThumb = w.cover_img || w.thumb;
+  // 퀴즈캣이 cover_img를 보던 것을, 월드컵 규격에 맞게 w.thumb로 매칭!
+  const mainThumb = w.thumb || w.cover_img;
   
   if(mainThumb){
     ti.src = mainThumb;
     tb.style.display='';
   } else if(itemsArray.length > 0){
+    // 만약 월드컵 썸네일 자체가 비어있다면, 첫 번째 항목에서 이미지를 따옴
     const firstItem = itemsArray[0];
     if(firstItem.image){
       ti.src = firstItem.image;
@@ -1316,13 +1317,13 @@ async function openWcDetail(id){
     tb.style.display='none';
   }
   
-  // 3. 데이터 주입
+  // 3. 텍스트 정보 매칭 주입
   document.getElementById('wc-det-cat').textContent=w.category||'기타';
   document.getElementById('wc-det-ttl').textContent=w.title||'';
   document.getElementById('wc-det-meta').textContent=`▶ ${w.plays||0}회 · ${cnt}개 항목 · by ${w.owner_nickname||''}`;
   document.getElementById('wc-det-desc').textContent=w.description||'';
   
-  // 4. 강 선택 버튼 생성
+  // 4. 강 선택 버튼 생성 시스템
   const btns=document.getElementById('wc-round-btns');
   const rounds=[];
   let r=4;
@@ -1336,43 +1337,9 @@ async function openWcDetail(id){
       +`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;
   }
     
-  // 5. 세팅 완료 후 화면 표시
+  // 5. 모든 세팅이 완료되면 퀴즈캣의 타이밍과 동일하게 화면을 로드!
   showScreen('wc-detail');
   setPageMeta(w.title,'');
-}
-
-let wcSelRound=4;
-function selWcRound(btn,n){wcSelRound=n;document.querySelectorAll('#wc-round-btns .cnt-btn').forEach(b=>b.classList.toggle('on',b===btn));}
-async function startWCPlay(){
-  const w=wcCurWC;
-  const items=[...(w.items||[])];
-  // 셔플
-  for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
-  wcItems=items.slice(0,wcSelRound);
-  wcRounds=[wcItems];wcRoundIdx=0;wcMatchIdx=0;wcWinners=[];
-  // plays 증가
-  sbUpdate('worldcups',`id=eq.${w.id}`,{plays:(w.plays||0)+1}).catch(()=>{});
-  showScreen('wc-battle');
-  renderWCBattle();
-}
-async function startWC(id){
-  const rows=await sbSelect('worldcups',`select=*&id=eq.${id}`).catch(()=>[]);
-  if(!rows||!rows.length){toast('불러오기 실패');return;}
-  wcCurWC=rows[0];
-  // plays 증가
-  sbUpdate('worldcups',`id=eq.${id}`,{plays:(wcCurWC.plays||0)+1}).catch(()=>{});
-  // 항목 셔플
-  const items=[...(wcCurWC.items||[])];
-  for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]];}
-  wcItems=items;
-  // 라운드 구성 (2의 배수로 조정)
-  let cnt=items.length;
-  while(cnt>1&&(cnt&(cnt-1))!==0)cnt--;
-  wcItems=wcItems.slice(0,cnt);
-  wcRounds=[wcItems];
-  wcRoundIdx=0;wcMatchIdx=0;wcWinners=[];
-  showScreen('wc-battle');
-  renderWCBattle();
 }
 
 function renderWCBattle(){
@@ -1615,7 +1582,7 @@ async function wcPublish(){
   if(cnt!==(1<<pow)){toast('항목 수는 2의 배수(4,8,16,32...)여야 해요. 현재: '+cnt+'개');return;}
   const id=wcEditId||('wc_'+Date.now());
   
-  // 💡 [정밀 수정] 항목 추가 모달에서 추가된 image 또는 image를 못찾으면 첫 항목 데이터에서 강제로 썸네일 추출
+  // 항목들 중에서 첫 번째 이미지나 유튜브 썸네일을 안전하게 추출
   let thumb = wcThumb || '';
   if(!thumb && wcMakeItems.length > 0) {
     const first = wcMakeItems[0];
@@ -1629,12 +1596,12 @@ async function wcPublish(){
   const category=wcMakeCat||'기타';
   const existing=wcEditId?(await sbSelect('worldcups','select=plays,win_stats,created_at&id=eq.'+wcEditId).catch(()=>[]))[0]||{}:{};
   
+  // 데이터베이스에 실제 존재하는 칼럼들로만 안전하게 저장!
   await sbUpsert('worldcups',{
     id,title,
     description:document.getElementById('wc-desc').value.trim(),
     category,item_type:wcMakeType,items:wcMakeItems,
-    thumb: thumb,
-    cover_img: thumb, // 💡 퀴즈캣 상세 페이지 로직과 호환되도록 cover_img 칸에도 똑같이 주소 주입!
+    thumb: thumb, // 👈 안전하게 원래 존재하던 thumb 칸에만 저장!
     is_private:isPrivate,quiz_password:quizPw,
     plays:existing.plays||0,win_stats:existing.win_stats||{},
     created_at:existing.created_at||Date.now(),
