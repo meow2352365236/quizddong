@@ -588,6 +588,11 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
     <div id="wc-item-vid-area" class="fl" style="display:none">
       <div class="fl"><label>유튜브 URL *</label><input type="text" id="wc-item-yt" placeholder="https://youtu.be/..." autocomplete="off" oninput="prevWcItemYT()"></div>
       <div id="wc-ytprev" style="display:none;margin-top:6px" class="yt-prev-m"><div class="yr"><iframe id="wc-ytif" src="" frameborder="0" allowfullscreen allow="autoplay"></iframe></div></div>
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <div class="fl" style="flex:1;margin-bottom:0"><label>시작 시간 (선택)</label><input type="text" id="wc-item-st" placeholder="예: 0:30" autocomplete="off" style="width:100%"></div>
+        <div class="fl" style="flex:1;margin-bottom:0"><label>종료 시간 (선택)</label><input type="text" id="wc-item-en" placeholder="예: 1:23" autocomplete="off" style="width:100%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">⏱ 설정하면 해당 구간만 재생돼요 (분:초 형식)</div>
     </div>
     
     <div style="display:flex;gap:8px;margin-top:14px">
@@ -1263,10 +1268,27 @@ async function deleteMyWC(id){
   toast('삭제됐어요');goMyWC();
 }
 async function wcFetchAll(){
-  return sbSelect('worldcups','select=id,title,description,category,item_type,thumb,is_private,quiz_password,plays,created_at,owner_id,owner_nickname,item_count&order=created_at.desc').catch(()=>[]);
+  // items 컬럼 포함해서 가져오되, base64 이미지는 렌더링에만 필요하므로 강수 계산에 활용
+  return sbSelect('worldcups','select=id,title,description,category,item_type,thumb,is_private,quiz_password,plays,created_at,owner_id,owner_nickname,items&order=created_at.desc')
+    .then(rows=>(rows||[]).map(w=>{
+      // items 배열 파싱해서 length만 추출, base64 이미지는 strip (메모리 절약)
+      let items=w.items||[];
+      if(typeof items==='string'){try{items=JSON.parse(items);}catch(e){items=[];}}
+      w._item_count=items.length;
+      // base64 이미지는 제거해서 메모리 절약 (실제 배틀 시 fresh fetch)
+      w.items=items.map(it=>it.ytId?it:{name:it.name,_hasImage:true});
+      return w;
+    })).catch(()=>[]);
 }
 async function wcFetchMine(uid){
-  return sbSelect('worldcups',`select=id,title,description,category,item_type,thumb,is_private,quiz_password,plays,created_at,owner_id,owner_nickname,item_count&owner_id=eq.${uid}&order=created_at.desc`).catch(()=>[]);
+  return sbSelect('worldcups',`select=id,title,description,category,item_type,thumb,is_private,quiz_password,plays,created_at,owner_id,owner_nickname,items&owner_id=eq.${uid}&order=created_at.desc`)
+    .then(rows=>(rows||[]).map(w=>{
+      let items=w.items||[];
+      if(typeof items==='string'){try{items=JSON.parse(items);}catch(e){items=[];}}
+      w._item_count=items.length;
+      w.items=items.map(it=>it.ytId?it:{name:it.name,_hasImage:true});
+      return w;
+    })).catch(()=>[]);
 }
 async function goWcHome(){
   stopAudio();clearTimer();killVideoIframe();
@@ -1304,7 +1326,7 @@ function renderWcGrid(){
   grid.innerHTML=data.map(w=>{
     const isMineWc=currentUser&&w.owner_id===currentUser.id;
     const isLocked=w.is_private&&!isMineWc&&!isAdmin;
-    const cnt=w.item_count||(w.items||[]).length||0;
+    const cnt=w._item_count||w.item_count||(Array.isArray(w.items)?w.items.length:0)||0;
     const roundName=cnt>=256?cnt+'강':cnt>=128?'128강':cnt>=64?'64강':cnt>=32?'32강':cnt>=16?'16강':cnt>=8?'8강':cnt>=4?'4강':'?';
     const blurClass=isLocked?' blurred':'';
     // [BUG3 FIX] 대표 썸네일: thumb 없으면 첫 항목 이미지로 fallback
@@ -1423,8 +1445,8 @@ function renderWCBattle(){
     if(!item){return `<div class="wc-item-btn" style="pointer-events:none;opacity:.3"><div class="wc-item-img">?</div></div>`;}
     let media='';
     if(item.ytId){
-      // 영상: 뷰포트 높이 기준 최대화
-      media=`<div style="width:100%;height:calc(100vh - 120px);min-height:440px;overflow:hidden;flex:1"><iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0" style="width:100%;height:100%;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>`;
+      const tParam=(item.startSec!=null?`&start=${item.startSec}`:'')+( item.endSec!=null?`&end=${item.endSec}`:'');
+      media=`<div style="width:100%;height:calc(100vh - 120px);min-height:440px;overflow:hidden;flex:1"><iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0${tParam}" style="width:100%;height:100%;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>`;
     } else if(item.image){
       // 이미지: 3/2 비율로 줄여서 이름 텍스트가 항상 보이게
       media=`<img src="${item.image}" style="width:100%;aspect-ratio:3/2;object-fit:cover;display:block" alt="">`;
@@ -1484,7 +1506,8 @@ function showWcCenterStage(winner, isRoundEnd, isLastRound, stats){
   const media=document.getElementById('wc-center-media');
   const nameEl=document.getElementById('wc-center-name');
   if(winner.ytId){
-    media.innerHTML=`<iframe src="https://www.youtube.com/embed/${winner.ytId}?autoplay=1&rel=0" style="width:100%;aspect-ratio:16/9;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
+    const tParam=(winner.startSec!=null?`&start=${winner.startSec}`:'')+( winner.endSec!=null?`&end=${winner.endSec}`:'');
+    media.innerHTML=`<iframe src="https://www.youtube.com/embed/${winner.ytId}?autoplay=1&rel=0${tParam}" style="width:100%;aspect-ratio:16/9;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe>`;
   } else if(winner.image){
     media.innerHTML=`<img src="${winner.image}" style="width:100%;aspect-ratio:16/9;object-fit:cover;display:block" alt="">`;
   } else {
@@ -1710,6 +1733,8 @@ function wcEditItem(i){
     document.getElementById('wc-item-img-area').style.display='none';
     document.getElementById('wc-item-vid-area').style.display='';
     document.getElementById('wc-item-yt').value=`https://youtu.be/${it.ytId}`;
+    document.getElementById('wc-item-st').value=it.startSec!=null?secToTime(it.startSec):'';
+    document.getElementById('wc-item-en').value=it.endSec!=null?secToTime(it.endSec):'';
     document.getElementById('wc-ytprev').style.display='block';
     document.getElementById('wc-ytif').src=`https://www.youtube.com/embed/${it.ytId}?rel=0&modestbranding=1`;
   } else {
@@ -1755,6 +1780,10 @@ async function wcSaveItem(){
     const ytId=extractYT(yt);
     if(!ytId){toast('유효한 유튜브 URL을 입력해주세요');return;}
     item.ytId=ytId;
+    const st=ptime(document.getElementById('wc-item-st').value);
+    const en=ptime(document.getElementById('wc-item-en').value);
+    if(st!=null)item.startSec=st;
+    if(en!=null)item.endSec=en;
   }
   // 수정 모드
   if(wcEditItemIdx>=0){
@@ -1768,6 +1797,8 @@ async function wcSaveItem(){
   document.getElementById('wc-item-img-ut').textContent='클릭하거나 드래그';
   document.getElementById('wc-ytprev').style.display='none';
   document.getElementById('wc-ytif').src='';
+  document.getElementById('wc-item-st').value='';
+  document.getElementById('wc-item-en').value='';
   document.getElementById('wc-item-save-btn').textContent='+ 추가';
   wcEditItemIdx=-1;
   document.getElementById('modal-wc-item').classList.add('hidden');
@@ -3182,6 +3213,7 @@ qz.addEventListener('dragover',e=>{e.preventDefault();qz.classList.add('drag')})
 qz.addEventListener('drop',e=>{e.preventDefault();qz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('image/')){document.getElementById('qimg-f').files=e.dataTransfer.files;handleQImg({target:{files:[f]}});}});
 function extractYT(u){const m=u.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
 function ptime(s){if(!s||!s.trim())return null;s=s.trim();if(s.includes(':')){const p=s.split(':');return parseInt(p[0])*60+parseInt(p[1]);}return parseInt(s)||null;}
+function secToTime(s){if(s==null)return'';const m=Math.floor(s/60),sec=s%60;return m+':'+(sec<10?'0':'')+sec;}
 async function prevQYT(type){
   const id=extractYT(document.getElementById(`q-yt-${type}`).value);
   const w=document.getElementById(`q-ytprev-${type}`),f=document.getElementById(`q-ytif-${type}`);
