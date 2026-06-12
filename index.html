@@ -321,19 +321,19 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 .wc-card-ttl{font-weight:700;font-size:14px;margin-bottom:4px}
 .wc-card-meta{font-size:12px;color:var(--text3)}
 /* 대결 화면 */
-.wc-battle{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 0 4px;gap:12px}
+.wc-battle{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:4px 0 0;gap:8px}
 .wc-round-info{font-size:14px;color:var(--text3);text-align:center;font-weight:600;margin-bottom:0}
-.wc-vs-wrap{display:flex;gap:16px;width:100%;max-width:1600px;align-items:stretch}
+.wc-vs-wrap{display:flex;gap:16px;width:100%;max-width:1600px;align-items:stretch;flex:1}
 .wc-item-btn{flex:1;background:var(--bg2);border:3px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;transition:all .25s;text-align:center;display:flex;flex-direction:column}
 .wc-item-btn:hover{border-color:var(--accent);transform:scale(1.02);box-shadow:0 12px 40px rgba(109,79,194,.4)}
 .wc-item-btn.winner{border-color:#ffdd00;box-shadow:0 0 40px rgba(255,221,0,.5);transform:scale(1.03);animation:wc-win .4s ease}
 .wc-item-btn.loser{opacity:0.3;transform:scale(0.95);transition:all .4s}
 @keyframes wc-win{0%{transform:scale(1)}50%{transform:scale(1.08)}100%{transform:scale(1.05)}}
-.wc-center-stage{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);opacity:0;pointer-events:none;transition:opacity .3s}
+.wc-center-stage{position:fixed;inset:0;z-index:999;display:flex;align-items:flex-start;justify-content:center;padding-top:6vh;background:rgba(0,0,0,.85);opacity:0;pointer-events:none;transition:opacity .3s}
 .wc-center-stage.show{opacity:1;pointer-events:all}
 .wc-center-card{max-width:860px;width:92%;background:var(--bg2);border:3px solid #ffdd00;border-radius:var(--rl);overflow:hidden;transform:scale(0.5);transition:transform .4s cubic-bezier(.34,1.56,.64,1)}
 .wc-center-stage.show .wc-center-card{transform:scale(1)}
-.wc-center-name{padding:20px;font-size:24px;font-weight:800;text-align:center;color:#ffdd00}
+.wc-center-name{padding:16px;font-size:22px;font-weight:800;text-align:center;color:#ffdd00}
 .wc-item-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:120px}
 .wc-item-name{padding:14px 16px;font-weight:800;font-size:22px;flex-shrink:0}
 .wc-vs-badge{display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:var(--accent);flex-shrink:0;width:50px}
@@ -496,9 +496,9 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
 
 <!-- WORLDCAT BATTLE -->
 <div class="screen" id="screen-wc-battle">
-  <div style="max-width:1600px;margin:0 auto;padding:12px 8px 40px">
-    <button class="back-btn" onclick="goWcHome()">← 월드캣 홈</button>
-    <div id="wc-battle-content"></div>
+  <div style="max-width:1600px;margin:0 auto;padding:8px 8px 0;height:calc(100vh - 60px);display:flex;flex-direction:column">
+    <button class="back-btn" onclick="goWcHome()" style="flex-shrink:0">← 월드캣 홈</button>
+    <div id="wc-battle-content" style="flex:1;display:flex;flex-direction:column;min-height:0"></div>
   </div>
   <div class="wc-center-stage" id="wc-center-stage" onclick="wcNextAfterAnim()">
     <div class="wc-center-card" id="wc-center-card">
@@ -1446,7 +1446,7 @@ function renderWCBattle(){
     let media='';
     if(item.ytId){
       const tParam=(item.startSec!=null?`&start=${item.startSec}`:'')+( item.endSec!=null?`&end=${item.endSec}`:'');
-      media=`<div style="width:100%;height:calc(100vh - 120px);min-height:440px;overflow:hidden;flex:1"><iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0${tParam}" style="width:100%;height:100%;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>`;
+      media=`<div style="flex:1;min-height:200px;overflow:hidden"><iframe src="https://www.youtube.com/embed/${item.ytId}?autoplay=0&rel=0${tParam}" style="width:100%;height:100%;border:none;display:block" allowfullscreen allow="autoplay;encrypted-media"></iframe></div>`;
     } else if(item.image){
       // 이미지: 3/2 비율로 줄여서 이름 텍스트가 항상 보이게
       media=`<img src="${item.image}" style="width:100%;aspect-ratio:3/2;object-fit:cover;display:block" alt="">`;
@@ -1462,7 +1462,7 @@ function renderWCBattle(){
   }
 
   content.innerHTML=`
-    <div class="wc-battle">
+    <div class="wc-battle" style="flex:1;height:100%">
       <div class="wc-round-info">
         <div style="font-size:18px;font-weight:800;color:var(--accent)">${roundName}</div>
         <div>${matchNum} / ${total} 경기</div>
@@ -3259,7 +3259,7 @@ window.startWCPlay = async function() {
   } else if (Array.isArray(wcCurWC.items)) {
     itemsArray = [...wcCurWC.items];
   }
-  if (!itemsArray.length || (itemsArray[0] && !itemsArray[0].name)) {
+  if (!itemsArray.length || itemsArray.some(it=>it._hasImage&&!it.image)) {
     toast('⏳ 항목 불러오는 중...');
     const rows = await sbSelect('worldcups',`select=items&id=eq.${wcCurWC.id}`).catch(()=>[]);
     if (rows && rows[0]) {
