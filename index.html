@@ -549,7 +549,7 @@ nav{background:var(--bg2);border-bottom:2px solid var(--border);padding:0 22px;h
       <div class="qli-h">
         항목 목록
         <span id="wc-item-count" style="color:var(--accent)">0</span>개
-        <span style="color:var(--text3);font-weight:400;font-size:11px">(최소 4개, 2의 배수)</span>
+        <span style="color:var(--text3);font-weight:400;font-size:11px">현재 <b id="wc-item-count">0</b>개<span id="wc-item-count-hint" style="color:var(--accent)"></span></span>
       </div>
       <div id="wc-item-list"></div>
       <button class="add-q" onclick="wcAddItem()">＋ 항목 추가하기</button>
@@ -1376,10 +1376,13 @@ function renderWcDetailUI(w){
   document.getElementById('wc-det-desc').textContent=w.description||'';
   // 강 선택 버튼
   const btns=document.getElementById('wc-round-btns');
-  const rounds=[];let r=4;while(r<=cnt){rounds.push(r);r*=2;}
-  wcSelRound=cnt;
-  if(rounds.length===0){btns.innerHTML=`<button class="cnt-btn on" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;}
-  else{btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')+`<button class="cnt-btn${cnt===wcSelRound?' on':''}" onclick="selWcRound(this,${cnt})">전체 (${cnt}강)</button>`;}
+  const maxRound=cnt>=4?(1<<Math.floor(Math.log2(cnt))):4;
+  const drop=cnt-maxRound;
+  const rounds=[];let r=4;while(r<maxRound){rounds.push(r);r*=2;}
+  wcSelRound=maxRound;
+  const fullLabel=drop>0?`전체 (${maxRound}강, ${drop}개 탈락)`:`전체 (${maxRound}강)`;
+  if(rounds.length===0){btns.innerHTML=`<button class="cnt-btn on" onclick="selWcRound(this,${maxRound})">${fullLabel}</button>`;}
+  else{btns.innerHTML=rounds.map(n=>`<button class="cnt-btn${n===wcSelRound?' on':''}" onclick="selWcRound(this,${n})">${n}강</button>`).join('')+`<button class="cnt-btn${maxRound===wcSelRound?' on':''}" onclick="selWcRound(this,${maxRound})">${fullLabel}</button>`;}
   // 수정 버튼
   const editBtn=document.getElementById('wc-det-edit-btn');
   if(editBtn){editBtn.style.display=(currentUser&&w.owner_id===currentUser.id)?'block':'none';}
@@ -1699,7 +1702,19 @@ function handleWcItemImg(e){
 function renderWcMakeList(){
   const cnt=wcMakeItems.length;
   const cntEl=document.getElementById('wc-item-count');
-  if(cntEl)cntEl.textContent=cnt;
+  if(cntEl){
+    if(cnt>=4){
+      const maxRound=1<<Math.floor(Math.log2(cnt));
+      const drop=cnt-maxRound;
+      cntEl.textContent=cnt;
+      const hint=document.getElementById('wc-item-count-hint');
+      if(hint)hint.textContent=drop>0?` → ${maxRound}강 진행 (${drop}개 자동 탈락)`:` → ${maxRound}강`;
+    } else {
+      cntEl.textContent=cnt;
+      const hint=document.getElementById('wc-item-count-hint');
+      if(hint)hint.textContent=' (최소 4개)';
+    }
+  }
   const el=document.getElementById('wc-item-list');
   if(!cnt){el.innerHTML='';return;}
   el.innerHTML=wcMakeItems.map((it,i)=>{
@@ -1923,8 +1938,13 @@ async function wcPublish(){
   if(!title){toast('제목을 입력해주세요');return;}
   const cnt=wcMakeItems.length;
   if(cnt<4){toast('항목은 최소 4개 필요해요');return;}
-  const pow=Math.floor(Math.log2(cnt));
-  if(cnt!==(1<<pow)){toast('항목 수는 2의 배수(4,8,16,32...)여야 해요. 현재: '+cnt+'개');return;}
+  // 가능한 최대 강수 계산 (2의 배수 중 cnt 이하 최대값)
+  const maxRound=1<<Math.floor(Math.log2(cnt));
+  const dropCnt=cnt-maxRound;
+  if(dropCnt>0){
+    const ok=confirm(`항목이 ${cnt}개예요.\n${maxRound}강으로 진행되며, 남는 ${dropCnt}개는 자동 탈락돼요.\n등록할까요?`);
+    if(!ok)return;
+  }
   const id=wcEditId||('wc_'+Date.now());
 
   toast('⏳ 이미지 업로드 중...');
@@ -3272,9 +3292,11 @@ window.startWCPlay = async function() {
   }
   if (!itemsArray.length) { toast('항목을 불러오지 못했어요'); return; }
 
-  // 2. 랜덤 섞기 + 강수 자르기
+  // 2. 랜덤 섞기 + 강수 자르기 (wcSelRound가 실제 항목수 초과 시 자동 조정)
   itemsArray.sort(() => Math.random() - 0.5);
-  if (wcSelRound) itemsArray = itemsArray.slice(0, wcSelRound);
+  const maxPossible=1<<Math.floor(Math.log2(itemsArray.length));
+  const useRound=wcSelRound&&wcSelRound<=itemsArray.length?wcSelRound:maxPossible;
+  itemsArray = itemsArray.slice(0, useRound);
 
   // 3. 상태 초기화
   wcRounds = [itemsArray];
